@@ -67,8 +67,9 @@ void setup() {
 }
 
 void loop() {
-  detectRelease();
-  detectLanding();
+  Release();
+  Landing();
+  Fusing();
   P_GPS_Moter();
   exit(0); //loopを1回で終了
 }
@@ -109,7 +110,7 @@ void getEuler() {
 }
 
 //放出判定
-void detectRelease() {
+void Release() {
   int i = 0, j = 0;
   double ave_roll = 0.0; // 平均ロール角度
   double ave_pressure = 0.0; // 平均気圧
@@ -180,7 +181,8 @@ void detectRelease() {
   Serial.println("release");
 }
 
-void detectLanding(){ 
+// 着地判定
+void Landing(){ 
   unsigned long start_time = millis();
   unsigned long current_time = millis();
   int i = 0, j = 0;
