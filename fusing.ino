@@ -1,0 +1,11 @@
+const int FUSE_GPIO = 26;
+
+void setup() {
+  pinMode(FUSE_GPIO, OUTPUT);
+  digitalWrite(FUSE_GPIO, HIGH);
+  delay(500);
+  digitalWrite(FUSE_GPIO, LOW);
+}
+
+void loop() {
+}
