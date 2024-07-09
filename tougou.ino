@@ -66,6 +66,7 @@ void setup() {
 }
 
 void loop() {
+  Start();
   Release();
   Landing();
   Fusing();
@@ -108,8 +109,8 @@ void Euler() {
   eulerdata[2] = yaw;
 }
 
-//放出判定
-void Release() {
+// スタート判定
+void Start() {
   int i = 0, j = 0;
   double ave_roll = 0.0; // 平均ロール角度
   double ave_pressure = 0.0; // 平均気圧
@@ -123,10 +124,9 @@ void Release() {
 
   pre_pressure /= 10;
 
-  // 頂点判定
   while(1) {
     for(i = 0; i < 10; i++) {
-      Euler();
+      getEuler();
       ave_roll += fabs(eulerdata[0]);
       ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
       delay(10);
@@ -147,11 +147,27 @@ void Release() {
     if(j == 10) {
       break;
     }
+    delay(10);
   }
 
-  Serial.println("top");
+  Serial.println("start");
+}
 
-  // 放出判定
+//放出判定
+void Release() {
+  int i = 0, j = 0;
+  double ave_roll = 0.0; // 平均ロール角度
+  double ave_pressure = 0.0; // 平均気圧
+  double pre_pressure = 0.0; // 前の気圧
+  double diff_pressure = 0.0; // 差圧
+
+  for(i = 0; i < 10; i++) {
+    pre_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+    delay(10);
+  }
+
+  pre_pressure /= 10;
+
   while(1) {
     for(i = 0; i < 10; i++) {
       Euler();
