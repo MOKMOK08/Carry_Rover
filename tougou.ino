@@ -7,7 +7,6 @@ TinyGPSPlus gps;
 // BNO055の設定
 double eulerdata[3];
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
-uint16_t BNO055_SAMPLERATE_DELAY_MS = 100;  //from hayakawa, 不要なら削除
 
 // BME280の設定
 const uint8_t SCLK_bme280 = 14;
