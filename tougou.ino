@@ -1,7 +1,5 @@
 #include <Wire.h>
 #include <Adafruit_BNO055.h>
-#include <Adafruit_Sensor.h>
-#include <utility/imumaths.h>
 #include <TinyGPSPlus.h>
 #include <ESP32_BME280_SPI.h>
 TinyGPSPlus gps;
@@ -32,6 +30,8 @@ const int PWMB = 32;    // 2つ目のDCモーターの回転速度
 //int RX_PIN = 16;
 //int TX_PIN = 17;
 
+// 溶断GPIOピン
+const int FUSE_GPIO = 2;
 
 double goalGPSdata2[2] = {35.7631874, 139.8962477};// 早川の家
 double currentlocation[2]={gps.location.lat(),gps.location.lng()};
@@ -326,7 +326,7 @@ void P_GPS_Moter(){
         break;
         }
     else{
-        int PID_left = 0.65 * azidata[0] + 126;  // 0.65は車輪半径
+        int PID_left = 0.65 * azidata[0] + 126; // 0.65は車輪半径
         int PID_right = - 0.65 * azidata[0] + 126;
         MoterControl(PID_left, PID_right);
         delay(250);
