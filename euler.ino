@@ -22,7 +22,7 @@ void setup() {
 }
 
 void loop() {
-  getEuler();
+  Euler();
   Serial.print("φ = ");
   Serial.println(eulerdata[0]);
   Serial.print("θ = ");
@@ -31,7 +31,7 @@ void loop() {
   Serial.println(eulerdata[2]);
 }
 
-void getEuler() {
+void Euler() {
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
