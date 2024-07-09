@@ -2,7 +2,7 @@
 #include "SD.h"
 #include "SPI.h"
 
-const char* FILE_NAME = "example.txt";
+const char* FILE_NAME = "example";
 
 File file;
 
@@ -17,10 +17,7 @@ void setup() {
     return;
   }
 
-  if (!createFile(FILE_NAME)) {
-    Serial.println("Failed to create file");
-    return;
-  }
+  createFile(FILE_NAME);
 
   writeFile("Hello, this is a new file!");
 }
@@ -28,18 +25,23 @@ void setup() {
 void loop() {
 }
 
-bool createFile(const char* filename) {
-  if (SD.exists(filename)) {
-    Serial.println("File already exists");
-    return false;
+void createFile(const char* baseFilename) {
+  String filename = String(baseFilename) + ".txt";
+  int counter = 1;
+
+  // Check if the file already exists and find a unique name
+  while (SD.exists(filename.c_str())) {
+    filename = String(baseFilename) + String(counter) + ".txt";
+    counter++;
   }
 
-  file = SD.open(filename, FILE_WRITE);
+  file = SD.open(filename.c_str(), FILE_WRITE);
   if (!file) {
     Serial.println("Failed to create file");
-    return false;
+    return;
   }
-  return true;
+  Serial.print("Created file: ");
+  Serial.println(filename);
 }
 
 void writeFile(const char* message) {
