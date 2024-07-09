@@ -75,7 +75,7 @@ void loop() {
 }
 
 // クオータニオンをオイラー角に変換
-void getEuler() {
+void Euler() {
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
@@ -127,7 +127,7 @@ void Release() {
   // 頂点判定
   while(1) {
     for(i = 0; i < 10; i++) {
-      getEuler();
+      Euler();
       ave_roll += fabs(eulerdata[0]);
       ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
       delay(10);
@@ -155,7 +155,7 @@ void Release() {
   // 放出判定
   while(1) {
     for(i = 0; i < 10; i++) {
-      getEuler();
+      Euler();
       ave_roll += fabs(eulerdata[0]);
       ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
       delay(10);
@@ -200,7 +200,7 @@ void Landing(){
   
   while(1) {
     for(i = 0; i < 10; i++) {
-      getEuler();
+      Euler();
       ave_roll += fabs(eulerdata[0]);
       ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
       delay(10);
