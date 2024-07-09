@@ -126,7 +126,7 @@ void Start() {
 
   while(1) {
     for(i = 0; i < 10; i++) {
-      getEuler();
+      Euler();
       ave_roll += fabs(eulerdata[0]);
       ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
       delay(10);
@@ -346,5 +346,5 @@ void P_GPS_Moter(){
         MoterControl(PID_left, PID_right);
         delay(250);
         }
-    } 
-}
+    }
+} 
