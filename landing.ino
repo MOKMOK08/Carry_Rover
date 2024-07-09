@@ -43,6 +43,41 @@ void loop() {
   exit(0);
 }
 
+void Euler() {
+  imu::Quaternion quat = bno.getQuat();
+  double w = quat.w();
+  double x = quat.x();
+  double y = quat.y();
+  double z = quat.z();
+
+  double ysqr = y * y;
+
+  // roll (x-axis rotation)
+  double t0 = +2.0 * (w * x + y * z);
+  double t1 = +1.0 - 2.0 * (x * x + ysqr);
+  double roll = atan2(t0, t1);
+
+  // pitch (y-axis rotation)
+  double t2 = +2.0 * (w * y - z * x);
+  t2 = t2 > 1.0 ? 1.0 : t2;
+  t2 = t2 < -1.0 ? -1.0 : t2;
+  double pitch = asin(t2);
+
+  // yaw (z-axis rotation)
+  double t3 = +2.0 * (w * z + x * y);
+  double t4 = +1.0 - 2.0 * (ysqr + z * z);
+  double yaw = atan2(t3, t4);
+
+  //ラジアンから度に変換
+  roll *= 57.2957795131;
+  pitch *= 57.2957795131;
+  yaw *= 57.2957795131;
+
+  eulerdata[0] = roll;
+  eulerdata[1] = pitch;
+  eulerdata[2] = yaw;
+}
+
 // 着地判定
 void detectLanding(){ 
   unsigned long start_time = millis();
@@ -62,6 +97,7 @@ void detectLanding(){
   
   while(1) {
     for(i = 0; i < 10; i++) {
+      Euler()
       ave_roll += fabs(eulerdata[0]);
       pressure = (uint16_t)round(bme280spi.Read_Pressure());
       ave_pressure += pressure;
