@@ -1,11 +1,10 @@
-//release.ino
+
 #include <Wire.h>
 #include <Adafruit_BNO055.h>
-#include "ESP32_BME280_SPI.h"
-// https://github.com/mgo-tec/ESP32_BME280_SPI/blob/master/src/ESP32_BME280_SPI.h
 #include <Adafruit_Sensor.h>
 #include <utility/imumaths.h>
 #include <TinyGPSPlus.h>
+#include <ESP32_BME280_SPI.h>
 TinyGPSPlus gps;
 
 // BNO055の設定
@@ -19,6 +18,7 @@ const uint8_t MOSI_bme280 = 13;
 const uint8_t MISO_bme280 = 12;
 const uint8_t CS_bme280 = 15;
 ESP32_BME280_SPI bme280spi(SCLK_bme280, MOSI_bme280, MISO_bme280, CS_bme280, 10000000);
+
 //PIN
 //PID制御のための定数
 #define Kp 1
@@ -35,7 +35,6 @@ const int PWMB = 6;    // 2つ目のDCモーターの回転速度
 
 
 double goalGPSdata2[2] = {35.7631874, 139.8962477};// 早川の家
-double eulerdata[3] = {0,0,0};
 double currentlocation[2]={gps.location.lat(),gps.location.lng()};
 double azidata[2] = {0,0};
 
@@ -266,6 +265,45 @@ void AzimuthDistance(){
   
 }
 
+//左右の回転速度を0基準に設定(v∈[-255,255])y
+void MoterControl( int left,int right) {
+    int absleft = abs(left);
+    int absright = abs(right);
+
+    if(left >= 0 && right >= 0){
+        digitalWrite(AIN1, HIGH);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else if(left >= 0 && right < 0){
+        digitalWrite(AIN1, HIGH);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else if(left < 0 && right >= 0){
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else{
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+}
+
 void P_GPS_Moter(){ 
     Serial.println("P_GPS_Moter");
     while(true){
@@ -281,5 +319,3 @@ void P_GPS_Moter(){
         }
     } 
 }
-
-
