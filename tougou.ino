@@ -59,6 +59,10 @@ void setup() {
 
   bme280spi.ESP32_BME280_SPI_Init(t_sb, filter, osrs_t, osrs_p, osrs_h, Mode);
 
+  //溶断回路の初期化
+  pinMode(FUSE_GPIO, OUTPUT);
+  digitalWrite(FUSE_GPIO, LOW);
+  
   delay(1000);
 }
 
@@ -175,6 +179,7 @@ void detectRelease() {
 
   Serial.println("release");
 }
+
 void detectLanding(){ 
   unsigned long start_time = millis();
   unsigned long current_time = millis();
@@ -221,6 +226,13 @@ void detectLanding(){
 
   Serial.println("landing");
 }
+
+void Fusing() {
+  digitalWrite(FUSE_GPIO, HIGH);
+  delay(500);
+  digitalWrite(FUSE_GPIO, LOW);
+}
+
 double distanceBetween(double lat1, double long1, double lat2, double long2){
     // returns distance in meters between two positions, both specified
     // as signed decimal-degrees latitude and longitude. Uses great-circle
@@ -244,6 +256,7 @@ double distanceBetween(double lat1, double long1, double lat2, double long2){
     delta = atan2(delta, denom);
     return delta * 6372795;
 }
+
 void AzimuthDistance(){
   imu::Quaternion quat = bno.getQuat();
     double w = quat.w();
