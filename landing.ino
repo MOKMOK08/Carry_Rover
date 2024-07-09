@@ -43,7 +43,7 @@ void loop() {
   exit(0);
 }
 
-void Euler() {
+void getEuler() {
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
@@ -97,10 +97,9 @@ void detectLanding(){
   
   while(1) {
     for(i = 0; i < 10; i++) {
-      Euler()
+      getEuler();
       ave_roll += fabs(eulerdata[0]);
-      pressure = (uint16_t)round(bme280spi.Read_Pressure());
-      ave_pressure += pressure;
+      ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
       delay(10);
     }
 

@@ -3,7 +3,7 @@
 #include "ESP32_BME280_SPI.h"
 
 // BNO055の設定
-double euler_data[3];
+double eulerdata[3];
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
 // BME280の設定
@@ -73,9 +73,9 @@ void getEuler() {
   pitch *= 57.2957795131;
   yaw *= 57.2957795131;
 
-  euler_data[0] = roll;
-  euler_data[1] = pitch;
-  euler_data[2] = yaw;
+  eulerdata[0] = roll;
+  eulerdata[1] = pitch;
+  eulerdata[2] = yaw;
 }
 
 //放出判定
@@ -97,9 +97,8 @@ void detectRelease() {
   while(1) {
     for(i = 0; i < 10; i++) {
       getEuler();
-      ave_roll += fabs(euler_data[0]);
-      pressure = (uint16_t)round(bme280spi.Read_Pressure());
-      ave_pressure += pressure;
+      ave_roll += fabs(eulerdata[0]);
+      ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
       delay(10);
     }
 
@@ -126,9 +125,8 @@ void detectRelease() {
   while(1) {
     for(i = 0; i < 10; i++) {
       getEuler();
-      ave_roll += fabs(euler_data[0]);
-      pressure = (uint16_t)round(bme280spi.Read_Pressure());
-      ave_pressure += pressure;
+      ave_roll += fabs(eulerdata[0]);
+      ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
       delay(10);
     }
 
