@@ -21,14 +21,14 @@ ESP32_BME280_SPI bme280spi(SCLK_bme280, MOSI_bme280, MISO_bme280, CS_bme280, 100
 //PIN
 //PID制御のための定数
 #define Kp 1
-//モータードライバピン番号未変更
+
 const int STBY = 2;     // モータードライバの制御の準備
-const int AIN1 = 3;     // 1つ目のDCモーターの制御
-const int AIN2 = 4;     // 1つ目のDCモーターの制御
-const int BIN1 = 7;     // 2つ目のDCモーターの制御
-const int BIN2 = 8;     // 2つ目のDCモーターの制御
-const int PWMA = 5;     // 1つ目のDCモーターの回転速度
-const int PWMB = 6;    // 2つ目のDCモーターの回転速度
+const int AIN1 = 26;     // 1つ目のDCモーターの制御
+const int AIN2 = 27;     // 1つ目のDCモーターの制御
+const int BIN1 = 25;     // 2つ目のDCモーターの制御
+const int BIN2 = 33;     // 2つ目のDCモーターの制御
+const int PWMA = 4;     // 1つ目のDCモーターの回転速度
+const int PWMB = 32;    // 2つ目のDCモーターの回転速度
 //int RX_PIN = 16;
 //int TX_PIN = 17;
 
