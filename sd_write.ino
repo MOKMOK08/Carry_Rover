@@ -29,7 +29,6 @@ void createFile(const char* baseFilename) {
   String filename = String(baseFilename) + ".txt";
   int counter = 1;
 
-  // Check if the file already exists and find a unique name
   while (SD.exists(filename.c_str())) {
     filename = String(baseFilename) + String(counter) + ".txt";
     counter++;
