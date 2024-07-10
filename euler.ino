@@ -29,6 +29,7 @@ void loop() {
   Serial.println(eulerdata[1]);
   Serial.print("𝜓 = ");
   Serial.println(eulerdata[2]);
+  delay(100);
 }
 
 void Euler() {

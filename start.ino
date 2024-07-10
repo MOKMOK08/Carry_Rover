@@ -39,7 +39,7 @@ void setup() {
 }
 
 void loop() {
-  Release();
+  Start();
   exit(0);
 }
 
@@ -78,8 +78,8 @@ void Euler() {
   eulerdata[2] = yaw;
 }
 
-//放出判定
-void Release() {
+// スタート判定
+void Start() {
   int i = 0, j = 0;
   double ave_roll = 0.0; // 平均ロール角度
   double ave_pressure = 0.0; // 平均気圧
@@ -95,7 +95,7 @@ void Release() {
 
   while(1) {
     for(i = 0; i < 10; i++) {
-      Euler();
+      getEuler();
       ave_roll += fabs(eulerdata[0]);
       ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
       delay(10);
@@ -106,7 +106,7 @@ void Release() {
     diff_pressure = ave_pressure - pre_pressure;
     pre_pressure = ave_pressure;
 
-    if(ave_roll < 45 && diff_pressure > 0.3) {
+    if(ave_roll > 90 && diff_pressure > 0.3) {
       j++;
     }
     else {
@@ -119,5 +119,5 @@ void Release() {
     delay(10);
   }
 
-  Serial.println("release");
+  Serial.println("start");
 }
