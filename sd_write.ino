@@ -2,9 +2,8 @@
 #include "SD.h"
 #include "SPI.h"
 
-const char* FILE_NAME = "example";
-
 File file;
+const char* FILE_NAME = "CarryRover";
 
 void setup() {
   Serial.begin(115200);
@@ -17,40 +16,46 @@ void setup() {
     return;
   }
 
-  createFile(FILE_NAME);
+  uint8_t cardType = SD.cardType();
 
-  writeFile("Hello, this is a new file!");
+  if (cardType == CARD_NONE) {
+    Serial.println("No SD card attached");
+    return;
+  }
+
+  createFile(SD, FILE_NAME);
+  writeToFile("Hello ");
 }
 
 void loop() {
 }
 
-void createFile(const char* baseFilename) {
-  String filename = String(baseFilename) + ".txt";
+void createFile(fs::FS &fs, const char *baseFilename) {
+  String filename = String("/") + baseFilename + ".txt";
   int counter = 1;
 
-  while (SD.exists(filename.c_str())) {
-    filename = String(baseFilename) + String(counter) + ".txt";
+  while (fs.exists(filename.c_str())) {
+    filename = String("/") + baseFilename + String(counter) + ".txt";
     counter++;
   }
 
-  file = SD.open(filename.c_str(), FILE_WRITE);
+  Serial.printf("Creating file: %s\n", filename.c_str());
+
+  file = fs.open(filename.c_str(), FILE_WRITE);
   if (!file) {
     Serial.println("Failed to create file");
-    return;
   }
-  Serial.print("Created file: ");
-  Serial.println(filename);
 }
 
-void writeFile(const char* message) {
+void writeToFile(const char *message) {
   if (!file) {
     Serial.println("No file opened for writing");
     return;
   }
   if (file.print(message)) {
-    Serial.println("File written");
+    Serial.println("Message written to file");
   } else {
     Serial.println("Write failed");
   }
+  file.close();
 }
