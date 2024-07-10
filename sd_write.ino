@@ -23,14 +23,14 @@ void setup() {
     return;
   }
 
-  createFile(SD, FILE_NAME);
-  writeToFile("Hello ");
+  CreateFile(SD, FILE_NAME);
+  WriteFile("Hello ");
 }
 
 void loop() {
 }
 
-void createFile(fs::FS &fs, const char *baseFilename) {
+void CreateFile(fs::FS &fs, const char *baseFilename) {
   String filename = String("/") + baseFilename + ".txt";
   int counter = 1;
 
@@ -47,7 +47,7 @@ void createFile(fs::FS &fs, const char *baseFilename) {
   }
 }
 
-void writeToFile(const char *message) {
+void WriteFile(const char *message) {
   if (!file) {
     Serial.println("No file opened for writing");
     return;
