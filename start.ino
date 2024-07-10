@@ -83,41 +83,37 @@ void Start() {
   int i = 0, j = 0;
   double ave_roll = 0.0; // 平均ロール角度
   double ave_pressure = 0.0; // 平均気圧
-  double pre_pressure = 0.0; // 前の気圧
+  double init_pressure = 0.0; // 初期気圧
   double diff_pressure = 0.0; // 差圧
 
   for(i = 0; i < 10; i++) {
-    pre_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+    init_pressure += bme280spi.Read_Pressure();
     delay(10);
   }
 
-  pre_pressure /= 10;
+  init_pressure /= 10;
 
   while(1) {
     for(i = 0; i < 10; i++) {
-      getEuler();
+      Euler();
       ave_roll += fabs(eulerdata[0]);
-      ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+      ave_pressure += bme280spi.Read_Pressure();
       delay(10);
     }
 
     ave_roll /= 10;
     ave_pressure /= 10;
-    diff_pressure = ave_pressure - pre_pressure;
-    pre_pressure = ave_pressure;
+    diff_pressure = ave_pressure - init_pressure;
 
-    if(ave_roll > 90 && diff_pressure > 0.3) {
+    if(ave_roll > 45 && ave_roll < 135) {
       j++;
     }
     else {
       j = 0;
     }
 
-    if(j == 10) {
+    if(j == 10 && diff_pressure > 1.0) {
       break;
     }
-    delay(10);
   }
-
-  Serial.println("start");
 }

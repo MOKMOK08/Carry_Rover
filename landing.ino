@@ -39,11 +39,11 @@ void setup() {
 }
 
 void loop() {
-  detectLanding();
+  Landing();
   exit(0);
 }
 
-void getEuler() {
+void Euler() {
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
@@ -79,7 +79,7 @@ void getEuler() {
 }
 
 // 着地判定
-void detectLanding(){ 
+void Landing() { 
   unsigned long start_time = millis();
   unsigned long current_time = millis();
   int i = 0, j = 0;
@@ -88,8 +88,8 @@ void detectLanding(){
   double pre_pressure = 0.0; // 前の気圧
   double diff_pressure = 0.0; // 差圧
 
-  for(i = 0; i < 10; i++){
-    pre_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+  for(i = 0; i < 10; i++) {
+    pre_pressure += bme280spi.Read_Pressure();
     delay(10);
   }
 
@@ -97,9 +97,9 @@ void detectLanding(){
   
   while(1) {
     for(i = 0; i < 10; i++) {
-      getEuler();
+      Euler();
       ave_roll += fabs(eulerdata[0]);
-      ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+      ave_pressure += bme280spi.Read_Pressure();
       delay(10);
     }
 
@@ -108,20 +108,18 @@ void detectLanding(){
     diff_pressure = ave_pressure - pre_pressure;
     pre_pressure = ave_pressure;
 
-    if(ave_roll < 45 && diff_pressure < 0.01) {
+    if(ave_roll < 45 && diff_pressure < 0.1) {
       j++;
     }
     else{
       j = 0;
     }
 
-    if(j == 10 || current_time - start_time > 20000){
+    if(j == 10 || current_time - start_time > 30000) {
       break;
     }
     else{
       current_time = millis();
     }
   }
-
-  Serial.println("landing");
 }
