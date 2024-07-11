@@ -22,15 +22,15 @@ void setup() {
 
 void loop() {
   Serial.print("φ = ");
-  Serial.println(eulerdata[0]);
+  Serial.println(Euler(0));
   Serial.print("θ = ");
-  Serial.println(eulerdata[1]);
+  Serial.println(Euler(1));
   Serial.print("𝜓 = ");
-  Serial.println(eulerdata[2]);
+  Serial.println(Euler(2));
   delay(100);
 }
 
-double Euler(char axis) {
+double Euler(int axis) {
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
@@ -61,13 +61,13 @@ double Euler(char axis) {
   yaw *= 57.2957795131;
 
   // 軸指定
-  if(axis == "x") {
+  if(axis == 0) {
     return roll;
   }
-  else if(axis == "y") {
+  else if(axis == 1) {
     return pitch;
   }
-  else if(axis == "z") {
+  else if(axis == 2) {
     return yaw;
   }
 }
