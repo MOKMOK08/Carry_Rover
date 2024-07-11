@@ -1,6 +1,5 @@
 #include <Wire.h>
 #include <Adafruit_BNO055.h>
-#include "ESP32_BME280_SPI.h"
 
 // BNO055の設定
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
