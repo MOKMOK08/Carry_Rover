@@ -3,7 +3,6 @@
 #include "ESP32_BME280_SPI.h"
 
 // BNO055の設定
-double eulerdata[3];
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
 void setup() {
@@ -22,7 +21,6 @@ void setup() {
 }
 
 void loop() {
-  Euler();
   Serial.print("φ = ");
   Serial.println(eulerdata[0]);
   Serial.print("θ = ");
@@ -32,7 +30,7 @@ void loop() {
   delay(100);
 }
 
-void Euler() {
+double Euler(char axis) {
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
@@ -62,7 +60,14 @@ void Euler() {
   pitch *= 57.2957795131;
   yaw *= 57.2957795131;
 
-  eulerdata[0] = roll;
-  eulerdata[1] = pitch;
-  eulerdata[2] = yaw;
+  // 軸指定
+  if(axis == "x") {
+    return roll;
+  }
+  else if(axis == "y") {
+    return pitch;
+  }
+  else if(axis == "z") {
+    return yaw;
+  }
 }
