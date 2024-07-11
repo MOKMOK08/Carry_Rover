@@ -3,6 +3,8 @@
 #include "SPI.h"
 
 File file;
+String gps_time;
+String progress = "ready";
 const char* FILE_NAME = "CarryRover";
 
 void setup() {
@@ -23,39 +25,37 @@ void setup() {
     return;
   }
 
-  CreateFile(SD, FILE_NAME);
-  WriteFile("Hello ");
-}
-
-void loop() {
-}
-
-void CreateFile(fs::FS &fs, const char *baseFilename) {
-  String filename = String("/") + baseFilename + ".txt";
+ String filename = String("/") + FILE_NAME + ".csv";
   int counter = 1;
 
-  while (fs.exists(filename.c_str())) {
-    filename = String("/") + baseFilename + String(counter) + ".txt";
+  while (SD.exists(filename.c_str())) {
+    filename = String("/") + FILE_NAME + String(counter) + ".csv";
     counter++;
   }
 
   Serial.printf("Creating file: %s\n", filename.c_str());
 
-  file = fs.open(filename.c_str(), FILE_WRITE);
+  file = SD.open(filename.c_str(), FILE_WRITE);
   if (!file) {
     Serial.println("Failed to create file");
   }
 }
 
-void WriteFile(const char *message) {
-  if (!file) {
-    Serial.println("No file opened for writing");
-    return;
-  }
-  if (file.print(message)) {
-    Serial.println("Message written to file");
-  } else {
-    Serial.println("Write failed");
-  }
+void loop() {
+  WriteLog("1", "2", "3", "4");
+}
+
+void WriteLog(String data_name1, String data1, String data_name2, String data2) {
+  file.print(gps_time);
+  file.print(',');
+  file.print(progress);
+  file.print(',');
+  file.print(data_name1);
+  file.print(',');
+  file.print(data1);
+  file.print(',');
+  file.print(data_name2);
+  file.print(',');
+  file.println(data2);
   file.close();
 }
