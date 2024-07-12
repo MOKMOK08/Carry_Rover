@@ -43,79 +43,44 @@ void loop() {
   exit(0);
 }
 
-void Euler() {
-  imu::Quaternion quat = bno.getQuat();
-  double w = quat.w();
-  double x = quat.x();
-  double y = quat.y();
-  double z = quat.z();
-
-  double ysqr = y * y;
-
-  // roll (x-axis rotation)
-  double t0 = +2.0 * (w * x + y * z);
-  double t1 = +1.0 - 2.0 * (x * x + ysqr);
-  double roll = atan2(t0, t1);
-
-  // pitch (y-axis rotation)
-  double t2 = +2.0 * (w * y - z * x);
-  t2 = t2 > 1.0 ? 1.0 : t2;
-  t2 = t2 < -1.0 ? -1.0 : t2;
-  double pitch = asin(t2);
-
-  // yaw (z-axis rotation)
-  double t3 = +2.0 * (w * z + x * y);
-  double t4 = +1.0 - 2.0 * (ysqr + z * z);
-  double yaw = atan2(t3, t4);
-
-  //ラジアンから度に変換
-  roll *= 57.2957795131;
-  pitch *= 57.2957795131;
-  yaw *= 57.2957795131;
-
-  eulerdata[0] = roll;
-  eulerdata[1] = pitch;
-  eulerdata[2] = yaw;
-}
-
 // 着地判定
 void Landing() { 
+  imu::Vector<3> gyroscope = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
   unsigned long start_time = millis();
   unsigned long current_time = millis();
   int i = 0, j = 0;
-  double ave_roll = 0.0; // 平均ロール角度
+  double ave_gyro_x = 0.0; // 平均ロール角度
   double ave_pressure = 0.0; // 平均気圧
-  double pre_pressure = 0.0; // 前の気圧
+  double init_pressure = 0.0; // 初期気圧
   double diff_pressure = 0.0; // 差圧
 
   for(i = 0; i < 10; i++) {
-    pre_pressure += bme280spi.Read_Pressure();
+    init_pressure += bme280spi.Read_Pressure();
     delay(10);
   }
 
-  pre_pressure /= 10;
+  init_pressure /= 10;
   
   while(1) {
     for(i = 0; i < 10; i++) {
-      Euler();
-      ave_roll += fabs(eulerdata[0]);
+      ave_gyro_x += fabs(gyroscope.x());
       ave_pressure += bme280spi.Read_Pressure();
-      delay(10);
+      delay(100);
     }
 
-    ave_roll /= 10;
+    ave_gyro_x /= 10;
     ave_pressure /= 10;
-    diff_pressure = ave_pressure - pre_pressure;
-    pre_pressure = ave_pressure;
+    diff_pressure = ave_pressure - init_pressure;
+    init_pressure = ave_pressure;
 
-    if(ave_roll < 45 && diff_pressure < 0.1) {
+    if(ave_gyro_x < 0.1 && diff_pressure < 0.1) {
       j++;
     }
     else{
       j = 0;
     }
 
-    if(j == 10 || current_time - start_time > 30000) {
+    if(j == 5 || current_time - start_time > 30000) {
       break;
     }
     else{
