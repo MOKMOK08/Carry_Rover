@@ -12,14 +12,15 @@ void setup() {
   pinMode(AIN2, OUTPUT);
   pinMode(BIN1, OUTPUT);
   pinMode(BIN2, OUTPUT);
-  digitalWrite(STBY, HIGH); // スタンバイ
   pinMode(PWMA, OUTPUT);
   pinMode(PWMB, OUTPUT);
+  digitalWrite(STBY, HIGH);
 }
-yy7u7u6yyttrrtr
+
 void loop() {
 }
 
+// 前進
 void Foward(int i, int j) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
@@ -30,8 +31,9 @@ void Foward(int i, int j) {
   delay(1000);
 }
 
-void Turn(char a, int i, int j) {
-  if(a = r) {
+// 回転（0:右回転. 1:左回転）
+void Turn(int a, int i, int j) {
+  if(a = 0) {
     analogWrite(PWMA, i);
     analogWrite(PWMB, j);
     digitalWrite(AIN1, HIGH);
@@ -40,7 +42,7 @@ void Turn(char a, int i, int j) {
     digitalWrite(BIN2, LOW);
   }
 
-  if(a = l) {
+  if(a = 1) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
   digitalWrite(AIN1, LOW);
@@ -50,6 +52,7 @@ void Turn(char a, int i, int j) {
   }
 }
 
+// 後退
 void Back(int i, int j) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
@@ -59,6 +62,7 @@ void Back(int i, int j) {
   digitalWrite(BIN2, HIGH);
 }
 
+// 停止
 void Stop() {
   digitalWrite(AIN1, LOW);
   digitalWrite(AIN2, LOW);
