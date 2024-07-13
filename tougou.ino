@@ -104,7 +104,7 @@ void setup() {
 
 void loop() {
   Start();
-  Release();
+  Released();
   Landing();
   Fusing();
   P_GPS_Moter();
@@ -128,13 +128,64 @@ void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "",
   file.close();
 }
 
+// 前進
+void Forward(int i, int j) {
+  analogWrite(PWMA, i);
+  analogWrite(PWMB, j);
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, HIGH);
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, LOW);
+  delay(1000);
+}
+
+// 回転（0:右回転. 1:左回転）
+void Turn(int a, int i, int j) {
+  if(a = 0) {
+  analogWrite(PWMA, i);
+  analogWrite(PWMB, j);
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, LOW);
+  }
+
+  if(a = 1) {
+  analogWrite(PWMA, i);
+  analogWrite(PWMB, j);
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, HIGH);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, HIGH);
+  }
+}
+
+// 後退
+void Back(int i, int j) {
+  analogWrite(PWMA, i);
+  analogWrite(PWMB, j);
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, HIGH);
+}
+
+// 停止
+void Stop() {
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, LOW);
+}
+
 // クオータニオンをオイラー角に変換
-void Euler() {
+double Euler(int axis) {
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
   double y = quat.y();
   double z = quat.z();
+
   double ysqr = y * y;
 
   // ロール角
@@ -158,9 +209,16 @@ void Euler() {
   pitch *= 57.2957795131;
   yaw *= 57.2957795131;
 
-  eulerdata[0] = roll;
-  eulerdata[1] = pitch;
-  eulerdata[2] = yaw;
+  // 軸指定
+  if(axis == 0) {
+    return roll;
+  }
+  else if(axis == 1) {
+    return pitch;
+  }
+  else if(axis == 2) {
+    return yaw;
+  }
 }
 
 // スタート判定
@@ -287,7 +345,7 @@ void Fusing() {
   digitalWrite(FUSE_GPIO, HIGH);
   delay(500);
   digitalWrite(FUSE_GPIO, LOW);
-  progress = "溶断完了"
+  progress = "溶断完了";
   WriteLog();
 }
 
@@ -326,52 +384,12 @@ void AzimuthDistance(){
     Serial.print(azimuth);
     Serial.println("degree");
   double turnpower;
-    turnpower = currentlocation[2] - eulerdata[2];
+    turnpower = currentlocation[2] - Euler(2);
     
     azidata[0] = turnpower;
     azidata[1] = distanceBetween(goalGPSdata2[0],goalGPSdata2[1],currentlocation[0],currentlocation[1]);
     Serial.print("\tDistance: ");
     Serial.println(azidata[1]);
-  
-}
-
-//左右の回転速度を0基準に設定(v∈[-255,255])y
-void MoterControl( int left,int right) {
-    int absleft = abs(left);
-    int absright = abs(right);
-
-    if(left >= 0 && right >= 0){
-        digitalWrite(AIN1, HIGH);
-        digitalWrite(AIN2, LOW);
-        digitalWrite(BIN1, HIGH);
-        digitalWrite(BIN2, LOW);
-        analogWrite(PWMA, absleft);
-        analogWrite(PWMB, absright);
-    }
-    else if(left >= 0 && right < 0){
-        digitalWrite(AIN1, HIGH);
-        digitalWrite(AIN2, LOW);
-        digitalWrite(BIN1, LOW);
-        digitalWrite(BIN2, HIGH);
-        analogWrite(PWMA, absleft);
-        analogWrite(PWMB, absright);
-    }
-    else if(left < 0 && right >= 0){
-        digitalWrite(AIN1, LOW);
-        digitalWrite(AIN2, HIGH);
-        digitalWrite(BIN1, HIGH);
-        digitalWrite(BIN2, LOW);
-        analogWrite(PWMA, absleft);
-        analogWrite(PWMB, absright);
-    }
-    else{
-        digitalWrite(AIN1, LOW);
-        digitalWrite(AIN2, HIGH);
-        digitalWrite(BIN1, LOW);
-        digitalWrite(BIN2, HIGH);
-        analogWrite(PWMA, absleft);
-        analogWrite(PWMB, absright);
-    }
 }
 
 void P_GPS_Moter(){ 
@@ -384,7 +402,7 @@ void P_GPS_Moter(){
     else{
         int PID_left = 0.65 * azidata[0] + 126; // 0.65は車輪半径
         int PID_right = - 0.65 * azidata[0] + 126;
-        MoterControl(PID_left, PID_right);
+        Forward(PID_left, PID_right);
         delay(250);
         }
     }
