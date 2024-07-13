@@ -29,6 +29,7 @@ void loop() {
   delay(100);
 }
 
+// クオータニオンをオイラー角に変換
 double Euler(int axis) {
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
@@ -38,18 +39,18 @@ double Euler(int axis) {
 
   double ysqr = y * y;
 
-  // roll (x-axis rotation)
+  // ロール角
   double t0 = +2.0 * (w * x + y * z);
   double t1 = +1.0 - 2.0 * (x * x + ysqr);
   double roll = atan2(t0, t1);
 
-  // pitch (y-axis rotation)
+  // ピッチ角
   double t2 = +2.0 * (w * y - z * x);
   t2 = t2 > 1.0 ? 1.0 : t2;
   t2 = t2 < -1.0 ? -1.0 : t2;
   double pitch = asin(t2);
 
-  // yaw (z-axis rotation)
+  // ヨー角
   double t3 = +2.0 * (w * z + x * y);
   double t4 = +1.0 - 2.0 * (ysqr + z * z);
   double yaw = atan2(t3, t4);
