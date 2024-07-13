@@ -21,7 +21,7 @@ void loop() {
 }
 
 // 前進
-void Foward(int i, int j) {
+void Forward(int i, int j) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
   digitalWrite(AIN1, LOW);
