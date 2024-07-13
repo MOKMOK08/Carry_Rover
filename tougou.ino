@@ -2,10 +2,17 @@
 #include <Adafruit_BNO055.h>
 #include <TinyGPSPlus.h>
 #include <ESP32_BME280_SPI.h>
+#include "FS.h"
+#include "SD.h"
+#include "SPI.h"
+
+// GPSの設定
 TinyGPSPlus gps;
+double goalGPSdata2[2] = {35.7631874, 139.8962477};// 早川の家
+double currentlocation[2]={gps.location.lat(),gps.location.lng()};
+double azidata[2] = {0,0};
 
 // BNO055の設定
-double eulerdata[3];
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
 // BME280の設定
@@ -32,9 +39,11 @@ const int PWMB = 32;    // 2つ目のDCモーターの回転速度
 // 溶断GPIOピン
 const int FUSE_GPIO = 2;
 
-double goalGPSdata2[2] = {35.7631874, 139.8962477};// 早川の家
-double currentlocation[2]={gps.location.lat(),gps.location.lng()};
-double azidata[2] = {0,0};
+// ログの設定
+File file;
+String gps_time;
+String progress = "準備中";
+String file_name = "CarryRover";
 
 void setup() {
   // BNO055の初期化
@@ -58,6 +67,34 @@ void setup() {
 
   bme280spi.ESP32_BME280_SPI_Init(t_sb, filter, osrs_t, osrs_p, osrs_h, Mode);
 
+  // ログの初期化
+  if (!SD.begin()) {
+    Serial.println("Card Mount Failed");
+    return;
+  }
+
+  uint8_t cardType = SD.cardType();
+
+  if (cardType == CARD_NONE) {
+    Serial.println("No SD card attached");
+    return;
+  }
+
+  file_name = String("/") + file_name + ".csv";
+  int counter = 1;
+
+  while (SD.exists(file_name.c_str())) {
+    file_name = String("/") + file_name + String(counter) + ".csv";
+    counter++;
+  }
+
+  Serial.printf("Creating file: %s\n", file_name.c_str());
+
+  file = SD.open(file_name.c_str(), FILE_WRITE);
+  if (!file) {
+    Serial.println("Failed to create file");
+  }
+
   //溶断回路の初期化
   pinMode(FUSE_GPIO, OUTPUT);
   digitalWrite(FUSE_GPIO, LOW);
@@ -72,6 +109,23 @@ void loop() {
   Fusing();
   P_GPS_Moter();
   exit(0); //loopを1回で終了
+}
+
+// ログの書き込み
+void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "", String data2 = "") {
+  file = SD.open(file_name.c_str(), FILE_APPEND);
+  file.print(gps_time);
+  file.print(',');
+  file.print(progress);
+  file.print(',');
+  file.print(data_name1);
+  file.print(',');
+  file.print(data1);
+  file.print(',');
+  file.print(data_name2);
+  file.print(',');
+  file.println(data2);
+  file.close();
 }
 
 // クオータニオンをオイラー角に変換
@@ -111,143 +165,130 @@ void Euler() {
 
 // スタート判定
 void Start() {
-  int i = 0, j = 0;
+  int i = 0;
   double ave_roll = 0.0; // 平均ロール角度
   double ave_pressure = 0.0; // 平均気圧
-  double pre_pressure = 0.0; // 前の気圧
+  double init_pressure = 0.0; // 初期気圧
   double diff_pressure = 0.0; // 差圧
 
   for(i = 0; i < 10; i++) {
-    pre_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+    init_pressure += bme280spi.Read_Pressure();
     delay(10);
   }
 
-  pre_pressure /= 10;
+  init_pressure /= 10;
 
   while(1) {
     for(i = 0; i < 10; i++) {
-      Euler();
-      ave_roll += fabs(eulerdata[0]);
-      ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+      ave_roll += fabs(Euler(0));
+      ave_pressure += bme280spi.Read_Pressure();
       delay(10);
     }
 
     ave_roll /= 10;
     ave_pressure /= 10;
-    diff_pressure = ave_pressure - pre_pressure;
-    pre_pressure = ave_pressure;
+    diff_pressure = ave_pressure - init_pressure;
 
-    if(ave_roll > 90 && diff_pressure > 0.3) {
-      j++;
-    }
-    else {
-      j = 0;
-    }
-
-    if(j == 10) {
+    if(ave_roll > 45 && ave_roll < 135 && diff_pressure < -0.5) {
+      progress = "開始";
+      WriteLog();
       break;
     }
-    delay(10);
+  
+    WriteLog("ロール角", String(ave_roll), "差圧", String(diff_pressure));
   }
-
-  Serial.println("start");
 }
 
 //放出判定
-void Release() {
+void Released() {
   int i = 0, j = 0;
   double ave_roll = 0.0; // 平均ロール角度
-  double ave_pressure = 0.0; // 平均気圧
-  double pre_pressure = 0.0; // 前の気圧
-  double diff_pressure = 0.0; // 差圧
-
-  for(i = 0; i < 10; i++) {
-    pre_pressure += (uint16_t)round(bme280spi.Read_Pressure());
-    delay(10);
-  }
-
-  pre_pressure /= 10;
 
   while(1) {
     for(i = 0; i < 10; i++) {
-      Euler();
-      ave_roll += fabs(eulerdata[0]);
-      ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+      ave_roll += fabs(Euler(0));
       delay(10);
     }
-
     ave_roll /= 10;
-    ave_pressure /= 10;
-    diff_pressure = ave_pressure - pre_pressure;
-    pre_pressure = ave_pressure;
 
-    if(ave_roll < 90 && diff_pressure > 0.3) {
+    if(ave_roll < 45) {
       j++;
     }
     else {
       j = 0;
     }
 
-    if(j == 10) {
+    if(j >= 5) {
+      progress = "放出";
       break;
     }
-  }
 
-  Serial.println("release");
+    WriteLog("ロール角", String(ave_roll));
+  }
 }
 
 // 着地判定
-void Landing(){ 
+void Landing() { 
+  imu::Vector<3> gyroscope = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
   unsigned long start_time = millis();
   unsigned long current_time = millis();
+  unsigned long diff_time = 0.0;
   int i = 0, j = 0;
-  double ave_roll = 0.0; // 平均ロール角度
+  double ave_gyro_x = 0.0; // 平均ロール角速度
   double ave_pressure = 0.0; // 平均気圧
-  double pre_pressure = 0.0; // 前の気圧
+  double init_pressure = 0.0; // 初期気圧
   double diff_pressure = 0.0; // 差圧
 
-  for(i = 0; i < 10; i++){
-    pre_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+  for(i = 0; i < 10; i++) {
+    init_pressure += bme280spi.Read_Pressure();
     delay(10);
   }
 
-  pre_pressure /= 10;
+  init_pressure /= 10;
   
+  delay(500);
+
   while(1) {
     for(i = 0; i < 10; i++) {
-      Euler();
-      ave_roll += fabs(eulerdata[0]);
-      ave_pressure += (uint16_t)round(bme280spi.Read_Pressure());
+      ave_gyro_x += fabs(gyroscope.x());
+      ave_pressure += bme280spi.Read_Pressure();
       delay(10);
     }
 
-    ave_roll /= 10;
+    ave_gyro_x /= 10;
     ave_pressure /= 10;
-    diff_pressure = ave_pressure - pre_pressure;
-    pre_pressure = ave_pressure;
+    diff_pressure = ave_pressure - init_pressure;
+    init_pressure = ave_pressure;
 
-    if(ave_roll < 45 && diff_pressure < 0.01) {
+    if(ave_gyro_x < 0.1 && diff_pressure < 0.1) {
       j++;
     }
     else{
       j = 0;
     }
 
-    if(j == 10 || current_time - start_time > 20000){
+    diff_time = current_time - start_time;
+
+    if(j == 5 || diff_time > 30000) {
+      progress = "着地";
+      WriteLog("ロール角速度", String(ave_gyro_x));
       break;
     }
     else{
       current_time = millis();
     }
-  }
 
-  Serial.println("landing");
+    delay(500);
+  }
 }
 
+// 溶断
 void Fusing() {
   digitalWrite(FUSE_GPIO, HIGH);
   delay(500);
   digitalWrite(FUSE_GPIO, LOW);
+  progress = "溶断完了"
+  WriteLog();
 }
 
 double distanceBetween(double lat1, double long1, double lat2, double long2){
@@ -347,4 +388,4 @@ void P_GPS_Moter(){
         delay(250);
         }
     }
-} 
+}
