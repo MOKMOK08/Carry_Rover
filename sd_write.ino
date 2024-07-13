@@ -5,7 +5,7 @@
 File file;
 String gps_time;
 String progress = "ready";
-const char* FILE_NAME = "CarryRover";
+String file_name = "CarryRover";
 
 void setup() {
   Serial.begin(115200);
@@ -25,27 +25,24 @@ void setup() {
     return;
   }
 
- String filename = String("/") + FILE_NAME + ".csv";
+  file_name = String("/") + file_name + ".csv";
   int counter = 1;
 
-  while (SD.exists(filename.c_str())) {
-    filename = String("/") + FILE_NAME + String(counter) + ".csv";
+  while (SD.exists(file_name.c_str())) {
+    file_name = String("/") + file_name + String(counter) + ".csv";
     counter++;
   }
 
-  Serial.printf("Creating file: %s\n", filename.c_str());
+  Serial.printf("Creating file: %s\n", file_name.c_str());
 
-  file = SD.open(filename.c_str(), FILE_WRITE);
+  file = SD.open(file_name.c_str(), FILE_WRITE);
   if (!file) {
     Serial.println("Failed to create file");
   }
 }
 
-void loop() {
-  WriteLog("1", "2", "3", "4");
-}
-
-void WriteLog(String data_name1, String data1, String data_name2, String data2) {
+void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "", String data2 = "") {
+  file = SD.open(file_name.c_str(), FILE_APPEND);
   file.print(gps_time);
   file.print(',');
   file.print(progress);
@@ -58,4 +55,8 @@ void WriteLog(String data_name1, String data1, String data_name2, String data2) 
   file.print(',');
   file.println(data2);
   file.close();
+}
+
+void loop() {
+  WriteLog("1", "2", "3", "4");
 }
