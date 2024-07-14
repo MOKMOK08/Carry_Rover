@@ -372,6 +372,9 @@ double distanceBetween(double lat1, double long1, double lat2, double long2){
     delta = atan2(delta, denom);
     return delta * 6372795;
 }
+void GPSget(){
+double currentlocation[2]={gps.location.lat(),gps.location.lng()};
+}
 
 void AzimuthDistance(){
   imu::Quaternion quat = bno.getQuat();
@@ -383,6 +386,7 @@ void AzimuthDistance(){
   double azimuth= atan2(y,x)*180.0/M_PI;
     Serial.print(azimuth);
     Serial.println("degree");
+  GPSget;
   double turnpower;
     turnpower = currentlocation[2] - Euler(2);
     
