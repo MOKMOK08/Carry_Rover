@@ -390,7 +390,7 @@ void AzimuthDistance(){
   double azimuth= atan2(y,x)*180.0/M_PI;
     Serial.print(azimuth);
     Serial.println("degree");
-  GPSget;
+  GPSget();
   double turnpower;
     turnpower = currentlocation[2] - Euler(2);
     
@@ -406,7 +406,7 @@ void P_GPS_Moter(){
     AzimuthDistance();
     if(azidata[1] < 5){
         Stop();
-        progress="GPSシーケンス終了"
+        progress="GPSシーケンス終了";
         WriteLog("赤コーンとの距離", String(azidata[1]), "方位角", String(azidata[0]));
         break;
         }
