@@ -108,7 +108,7 @@ void loop() {
   Landing();
   Fusing();
   P_GPS_Moter();
-  camera()
+  camera();
   exit(0); //loopを1回で終了
 }
 
