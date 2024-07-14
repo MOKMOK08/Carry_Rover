@@ -405,12 +405,15 @@ void P_GPS_Moter(){
     while(true){
     AzimuthDistance();
     if(azidata[1] < 5){
+        Stop();
+        progress="GPSシーケンス終了"
         break;
         }
     else{
         int PID_left = 0.65 * azidata[0] + 126; // 0.65は車輪半径
         int PID_right = - 0.65 * azidata[0] + 126;
         Forward(PID_left, PID_right);
+        WriteLog("赤コーンとの距離", String(azidata[1]), "方位角", String(azidata[0]));
         delay(250);
         }
     }
