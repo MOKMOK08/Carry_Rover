@@ -38,7 +38,7 @@ const int PWMB = 32;    // 2つ目のDCモーターの回転速度
 
 // 溶断GPIOピン
 const int FUSE_GPIO = 2;
-
+const int pix=320;
 // ログの設定
 File file;
 String gps_time;
@@ -406,4 +406,70 @@ void P_GPS_Moter(){
         delay(250);
         }
     }
+}
+
+void parseData(String data) {
+  // 受信データをコンマで分割
+  int firstComma = data.indexOf(',');
+  int secondComma = data.indexOf(',', firstComma + 1);
+  int spaceAfterSecondComma = data.indexOf(' ', secondComma + 1);
+  
+  if (firstComma > 0 && secondComma > 0 && spaceAfterSecondComma > 0) {
+    // X座標
+    String xStr = data.substring(1, firstComma); // "R"の後から最初のカンマまで
+    int x = xStr.toInt();
+    
+    // Y座標
+    String yStr = data.substring(firstComma + 1, secondComma);
+    int y = yStr.toInt();
+    
+    // 割合(後で調整します)
+    String percentageStr = data.substring(secondComma + 1);
+    percentageStr.trim();
+    float percentage = percentageStr.toFloat();
+    WriteLog("x座標","xStr","画面占有率","percentageStr");
+  }
+}
+
+void camera(){
+    progress = "画像誘導開始";
+    WriteLog();
+    // データが受信されている場合
+while(1){
+  if (Serial.available()) {
+    // 受信データを読み取る
+    String receivedData = Serial.readStringUntil('\n');
+    
+    // データをパースして整数に変換
+    parseData(receivedData);
+  }
+  
+  // 短い遅延
+  delay(10);
+
+
+ if (x-pix>10){
+  //モーターを左右どちらかに回転させるプログラムを書く
+    Turn(0,100,100);
+ }elseif(x-pix<-10){
+    //モーターを左右どちらかに回転させるプログラムを書く
+    Turn(1,100,100);
+  }elseif(x=-1){
+    //検出されないため、左右どちらかに旋回し続ける
+    Turn(1,100,100);
+  }elseif(abs(x-pix)<=10){
+  //回転を停止して前進
+    stop();
+    for(int i=0;i<256;i++){
+      Forward(i,i);
+    }
+  if(percentage>80.0){
+     //ゴール判定
+     stop();
+     progress="ゴール"
+     WriteLog();
+     break;
+      }
+    }
+   }
 }
