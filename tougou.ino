@@ -392,7 +392,7 @@ void AzimuthDistance(){
     Serial.println("degree");
   GPSget();
   double turnpower;
-    turnpower = currentlocation[2] - Euler(2);
+    turnpower = currentlocation[1] - Euler(2);
     
     azidata[0] = turnpower;
     azidata[1] = distanceBetween(goalGPSdata2[0],goalGPSdata2[1],currentlocation[0],currentlocation[1]);
