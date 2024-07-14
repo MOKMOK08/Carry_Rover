@@ -390,9 +390,10 @@ void AzimuthDistance(){
   double azimuth= atan2(y,x)*180.0/M_PI;
     Serial.print(azimuth);
     Serial.println("degree");
+  Euler();
   GPSget();
   double turnpower;
-    turnpower = currentlocation[1] - Euler(2);
+    turnpower = currentlocation[1] - yaw;
     
     azidata[0] = turnpower;
     azidata[1] = distanceBetween(goalGPSdata2[0],goalGPSdata2[1],currentlocation[0],currentlocation[1]);
