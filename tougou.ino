@@ -108,6 +108,7 @@ void loop() {
   Landing();
   Fusing();
   P_GPS_Moter();
+  camera()
   exit(0); //loopを1回で終了
 }
 
@@ -412,28 +413,7 @@ void P_GPS_Moter(){
     }
 }
 
-void parseData(String data) {
-  // 受信データをコンマで分割
-  int firstComma = data.indexOf(',');
-  int secondComma = data.indexOf(',', firstComma + 1);
-  int spaceAfterSecondComma = data.indexOf(' ', secondComma + 1);
-  
-  if (firstComma > 0 && secondComma > 0 && spaceAfterSecondComma > 0) {
-    // X座標
-    String xStr = data.substring(1, firstComma); // "R"の後から最初のカンマまで
-    int x = xStr.toInt();
-    
-    // Y座標
-    String yStr = data.substring(firstComma + 1, secondComma);
-    int y = yStr.toInt();
-    
-    // 割合(後で調整します)
-    String percentageStr = data.substring(secondComma + 1);
-    percentageStr.trim();
-    float percentage = percentageStr.toFloat();
-    WriteLog("x座標","xStr","画面占有率","percentageStr");
-  }
-}
+
 
 void camera(){
     progress = "画像誘導開始";
@@ -444,14 +424,32 @@ while(1){
     // 受信データを読み取る
     String receivedData = Serial.readStringUntil('\n');
     
-    // データをパースして整数に変換
-    parseData(receivedData);
+  // 受信データをコンマで分割
+  int firstComma = receivedData.indexOf(',');
+  int secondComma = receivedData.indexOf(',', firstComma + 1);
+  int spaceAfterSecondComma = receivedData.indexOf(' ', secondComma + 1);
+  
+  if (firstComma > 0 && secondComma > 0 && spaceAfterSecondComma > 0) {
+    // X座標
+    String xStr = receivedData.substring(1, firstComma); // "R"の後から最初のカンマまで
+    int x = xStr.toInt();
+    
+    // Y座標
+    String yStr = receivedData.substring(firstComma + 1, secondComma);
+    int y = yStr.toInt();
+    
+    // 割合
+    String percentageStr = receivedData.substring(secondComma + 1);
+    percentageStr.trim();
+    float percentage = percentageStr.toFloat();
+    
+    WriteLog("x座標",xStr,"画面占有率",percentageStr);
+  }
   }
   
   // 短い遅延
   delay(10);
-
-
+  
  if (x-pix>10){
   //モーターを左右どちらかに回転させるプログラムを書く
     Turn(0,100,100);
