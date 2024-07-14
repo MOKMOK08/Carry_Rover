@@ -408,6 +408,9 @@ void P_GPS_Moter(){
         int PID_left = 0.65 * azidata[0] + 126; // 0.65は車輪半径
         int PID_right = - 0.65 * azidata[0] + 126;
         Forward(PID_left, PID_right);
+        String distance= azidata[1];
+        String azimuth = azimuth;
+        WriteLog("赤コーンとの距離","distance","方位角","azimuth");
         delay(250);
         }
     }
