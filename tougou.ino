@@ -38,7 +38,10 @@ const int PWMB = 32;    // 2つ目のDCモーターの回転速度
 
 // 溶断GPIOピン
 const int FUSE_GPIO = 2;
-const int pix=320;
+
+//カメラの設定
+const int pix=320; //画素数
+
 // ログの設定
 File file;
 String gps_time;
@@ -408,9 +411,6 @@ void P_GPS_Moter(){
         int PID_left = 0.65 * azidata[0] + 126; // 0.65は車輪半径
         int PID_right = - 0.65 * azidata[0] + 126;
         Forward(PID_left, PID_right);
-        String distance= azidata[1];
-        String azimuth = azimuth;
-        WriteLog("赤コーンとの距離","distance","方位角","azimuth");
         delay(250);
         }
     }
@@ -419,62 +419,68 @@ void P_GPS_Moter(){
 
 
 void camera(){
-    progress = "画像誘導開始";
-    WriteLog();
-    // データが受信されている場合
-while(1){
-  if (Serial.available()) {
-    // 受信データを読み取る
-    String receivedData = Serial.readStringUntil('\n');
-    
-  // 受信データをコンマで分割
-  int firstComma = receivedData.indexOf(',');
-  int secondComma = receivedData.indexOf(',', firstComma + 1);
-  int spaceAfterSecondComma = receivedData.indexOf(' ', secondComma + 1);
-  
-  if (firstComma > 0 && secondComma > 0 && spaceAfterSecondComma > 0) {
-    // X座標
-    String xStr = receivedData.substring(1, firstComma); // "R"の後から最初のカンマまで
-    int x = xStr.toInt();
-    
-    // Y座標
-    String yStr = receivedData.substring(firstComma + 1, secondComma);
-    int y = yStr.toInt();
-    
-    // 割合
-    String percentageStr = receivedData.substring(secondComma + 1);
-    percentageStr.trim();
-    float percentage = percentageStr.toFloat();
-    
-    WriteLog("x座標",xStr,"画面占有率",percentageStr);
-  }
-  }
-  
-  // 短い遅延
-  delay(10);
-  
- if (x-pix>10){
-  //モーターを左右どちらかに回転させるプログラムを書く
-    Turn(0,100,100);
- }elseif(x-pix<-10){
-    //モーターを左右どちらかに回転させるプログラムを書く
-    Turn(1,100,100);
-  }elseif(x=-1){
-    //検出されないため、左右どちらかに旋回し続ける
-    Turn(1,100,100);
-  }elseif(abs(x-pix)<=10){
-  //回転を停止して前進
-    stop();
-    for(int i=0;i<256;i++){
-      Forward(i,i);
-    }
-  if(percentage>80.0){
-     //ゴール判定
-     stop();
-     progress="ゴール"
-     WriteLog();
-     break;
+  int x, y;
+  float percentage;
+  progress = "画像誘導";
+  WriteLog();
+
+  // データが受信されている場合
+  while(1){
+    if (Serial.available()) {
+      // 受信データを読み取る
+      String receivedData = Serial.readStringUntil('\n');
+      
+      // 受信データをコンマで分割
+      int firstComma = receivedData.indexOf(',');
+      int secondComma = receivedData.indexOf(',', firstComma + 1);
+      int spaceAfterSecondComma = receivedData.indexOf(' ', secondComma + 1);
+      
+      if (firstComma > 0 && secondComma > 0 && spaceAfterSecondComma > 0) {
+        // X座標
+        String xStr = receivedData.substring(1, firstComma); // "R"の後から最初のカンマまで
+        x = xStr.toInt();
+        
+        // Y座標
+        String yStr = receivedData.substring(firstComma + 1, secondComma);
+        y = yStr.toInt();
+        
+        // 割合
+        String percentageStr = receivedData.substring(secondComma + 1);
+        percentageStr.trim();
+        percentage = percentageStr.toFloat();
+        
+        WriteLog("x座標", xStr, "画面占有率", percentageStr);
       }
     }
-   }
+  
+    // 短い遅延
+    delay(10);
+    
+    if (x - pix > 10){
+      //モーターを左右どちらかに回転させるプログラムを書く
+      Turn(0, 100, 100);
+    }
+    else if(x - pix < -10){
+      //モーターを左右どちらかに回転させるプログラムを書く
+      Turn(1, 100, 100);
+    }
+    else if(x = -1){
+      //検出されないため、左右どちらかに旋回し続ける
+      Turn(1, 100, 100);
+    }
+    else if(abs(x - pix) <= 10){
+    //回転を停止して前進
+      Stop();
+      for(int i = 0; i < 256; i++){
+        Forward(i,i);
+      }
+      if(percentage > 80.0){
+        //ゴール判定
+        Stop();
+        progress = "ゴール";
+        WriteLog();
+        break;
+      }
+    }
+  }
 }
