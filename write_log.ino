@@ -103,6 +103,14 @@ void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "",
   }
 
   file = SD.open(file_name.c_str(), FILE_APPEND);
+    String gps_time; 
+    gps_time += String(gps.date.day());
+    gps_time += ",";
+    gps_time += String(gps.time.hour());
+    gps_time += ":";
+    gps_time += String(gps.time.minute());
+    gps_time += ":";
+    gps_time += String(gps.time.second());
   file.print(gps_time);
   file.print(',');
   file.print(progress);
