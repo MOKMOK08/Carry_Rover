@@ -407,6 +407,7 @@ void P_GPS_Moter(){
     if(azidata[1] < 5){
         Stop();
         progress="GPSシーケンス終了"
+        WriteLog("赤コーンとの距離", String(azidata[1]), "方位角", String(azidata[0]));
         break;
         }
     else{
