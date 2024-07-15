@@ -3,7 +3,13 @@
 BluetoothSerial SerialBT;
 
 void setup() {
-  SerialBT.begin("ESP32test"); //Bluetooth device name
+  SerialBT.begin("cansatESP32"); // デバイス名
+
+  // Bluetoothシリアルが利用可能になるまで待機
+  while(!SerialBT.hasClient()) {
+    delay(1000);
+  }
+  SerialBT.println("Bluetooth connected!");
 }
 
 void loop() {
