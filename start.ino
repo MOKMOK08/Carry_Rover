@@ -4,6 +4,8 @@
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
+#include <TinyGPS++.h>
+#include "BluetoothSerial.h"
 
 // BNO055の設定
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
@@ -15,11 +17,16 @@ const uint8_t MISO_bme280 = 12;
 const uint8_t CS_bme280 = 15;
 ESP32_BME280_SPI bme280spi(SCLK_bme280, MOSI_bme280, MISO_bme280, CS_bme280, 10000000);
 
-// ログの設定
+// SDカードの設定
 File file;
-String gps_time;
-String progress = "準備中";
-String file_name = "CarryRover";
+String progress = "Ready";
+String file_name;
+
+// GPSの設定
+TinyGPSPlus gps;
+
+// Bluetoothの設定
+BluetoothSerial SerialBT;
 
 void setup() {
   // BNO055の初期化
@@ -43,35 +50,36 @@ void setup() {
 
   bme280spi.ESP32_BME280_SPI_Init(t_sb, filter, osrs_t, osrs_p, osrs_h, Mode);
 
-  // ログの初期化
-  if (!SD.begin()) {
-    Serial.println("Card Mount Failed");
+  SerialBT.begin("cansatESP32"); //デバイス名
+
+  // Bluetoothシリアルが利用可能になるまで待機
+  while(!SerialBT.hasClient()) {
+    delay(1000);
+  }
+  SerialBT.println("Bluetooth connected!");
+
+  if(!SD.begin()) {
+    SerialBT.println("Card Mount Failed");
     return;
   }
 
   uint8_t cardType = SD.cardType();
 
-  if (cardType == CARD_NONE) {
-    Serial.println("No SD card attached");
+  if(cardType == CARD_NONE) {
+    SerialBT.println("No SD card attached");
     return;
   }
 
-  file_name = String("/") + file_name + ".csv";
-  int counter = 1;
+  Serial2.begin(9600, SERIAL_8N1, 16, 17); // RX = 16, TX = 17
 
-  while (SD.exists(file_name.c_str())) {
-    file_name = String("/") + file_name + String(counter) + ".csv";
-    counter++;
+  // GPSデータが有効でない場合、待機する
+  while(!gps.location.isValid() && !gps.date.isValid() && !gps.time.isValid()) {
+    SerialBT.println("Waiting for GPS signal...");
+    delay(1000);
   }
+  SerialBT.println("GPS signal acquired!"); 
 
-  Serial.printf("Creating file: %s\n", file_name.c_str());
-
-  file = SD.open(file_name.c_str(), FILE_WRITE);
-  if (!file) {
-    Serial.println("Failed to create file");
-  }
-
-  delay(1000);
+  CreateFile("cansat");
 }
 
 void loop() {
@@ -79,8 +87,78 @@ void loop() {
   exit(0);
 }
 
-// ログの書き込み
+void CreateFile(String FILE_NAME) {
+  file_name = String("/") + FILE_NAME + ".csv";
+  int counter = 2;
+
+  while(SD.exists(file_name.c_str())) {
+    file_name = String("/") + FILE_NAME + String(counter) + ".csv";
+    counter++;
+  }
+
+  file = SD.open(file_name.c_str(), FILE_WRITE);
+  if(!file) {
+    SerialBT.println("Failed to create file");
+  }
+  SerialBT.println("Creating file: " + file_name);
+}
+
 void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "", String data2 = "") {
+  String gps_time;
+
+  while(Serial2.available() > 0) {
+    char c = Serial2.read();
+    gps.encode(c);
+  }
+
+  if(gps.date.isValid() && gps.time.isValid()) {
+    int year = gps.date.year();
+    int month = gps.date.month();
+    int day = gps.date.day();
+    int hour = gps.time.hour();
+    int minute = gps.time.minute();
+    int second = gps.time.second();
+
+    // JSTに変換
+    hour += 9;
+    if(hour >= 24) {
+      hour -= 24;
+      day += 1;
+
+      if((month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12) && day > 31) {
+        day = 1;
+        month += 1;
+      } 
+      else if((month == 4 || month == 6 || month == 9 || month == 11) && day > 30) {
+        day = 1;
+        month += 1;
+      } 
+      else if(month == 2) {
+        if((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) {
+          if(day > 29) {
+            day = 1;
+            month += 1;
+          }
+        } 
+        else {
+          if(day > 28) {
+            day = 1;
+            month += 1;
+          }
+        }
+      }
+
+      if(month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+
+    char buffer[30];
+    sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
+    gps_time = String(buffer);
+  }
+
   file = SD.open(file_name.c_str(), FILE_APPEND);
   file.print(gps_time);
   file.print(',');
@@ -94,6 +172,18 @@ void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "",
   file.print(',');
   file.println(data2);
   file.close();
+
+  SerialBT.print(gps_time);
+  SerialBT.print(',');
+  SerialBT.print(progress);
+  SerialBT.print(',');
+  SerialBT.print(data_name1);
+  SerialBT.print(',');
+  SerialBT.print(data1);
+  SerialBT.print(',');
+  SerialBT.print(data_name2);
+  SerialBT.print(',');
+  SerialBT.println(data2);
 }
 
 // クオータニオンをオイラー角に変換
@@ -156,7 +246,7 @@ void Start() {
 
   while(1) {
     for(i = 0; i < 10; i++) {
-      ave_roll += fabs(Euler(0));
+      ave_roll += Euler(0);
       ave_pressure += bme280spi.Read_Pressure();
       delay(10);
     }
@@ -165,12 +255,12 @@ void Start() {
     ave_pressure /= 10;
     diff_pressure = ave_pressure - init_pressure;
 
-    if(ave_roll > 45 && ave_roll < 135 && diff_pressure < -0.5) {
-      progress = "開始";
+    if(fabs(ave_roll) > 45 && fabs(ave_roll) < 135 && diff_pressure < -0.5) {
+      progress = "Start";
       WriteLog();
       break;
     }
   
-    WriteLog("ロール角", String(ave_roll), "差圧", String(diff_pressure));
+    WriteLog("roll angle", String(ave_roll), "differential pressure", String(diff_pressure));
   }
 }

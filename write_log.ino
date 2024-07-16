@@ -131,6 +131,18 @@ void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "",
   file.print(',');
   file.println(data2);
   file.close();
+
+  SerialBT.print(gps_time);
+  SerialBT.print(',');
+  SerialBT.print(progress);
+  SerialBT.print(',');
+  SerialBT.print(data_name1);
+  SerialBT.print(',');
+  SerialBT.print(data1);
+  SerialBT.print(',');
+  SerialBT.print(data_name2);
+  SerialBT.print(',');
+  SerialBT.println(data2);
 }
 
 void loop() {
