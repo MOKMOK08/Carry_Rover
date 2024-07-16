@@ -1,16 +1,11 @@
 #include <Wire.h>
 #include <Adafruit_BNO055.h>
-#include <TinyGPSPlus.h>
-#include <ESP32_BME280_SPI.h>
+#include "ESP32_BME280_SPI.h"
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
-
-// GPSの設定
-TinyGPSPlus gps;
-double goalGPSdata2[2] = {35.7631874, 139.8962477};// 早川の家
-double currentlocation[2]={gps.location.lat(),gps.location.lng()};
-double azidata[2] = {0,0};
+#include <TinyGPS++.h>
+#include "BluetoothSerial.h"
 
 // BNO055の設定
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
@@ -21,6 +16,19 @@ const uint8_t MOSI_bme280 = 13;
 const uint8_t MISO_bme280 = 12;
 const uint8_t CS_bme280 = 15;
 ESP32_BME280_SPI bme280spi(SCLK_bme280, MOSI_bme280, MISO_bme280, CS_bme280, 10000000);
+
+// GPSの設定
+TinyGPSPlus gps;
+const double goalGPSdata2[2] = {35.7631874, 139.8962477};// 早川の家
+double azidata[2] = {0,0};
+
+// SDカードの設定
+File file;
+String progress = "Ready"; // シーケンス
+String file_name;
+
+// Bluetoothの設定
+BluetoothSerial SerialBT;
 
 //PIN
 //PID制御のための定数
@@ -41,12 +49,6 @@ const int FUSE_GPIO = 2;
 
 //カメラの設定
 const int pix=320; //画素数
-
-// ログの設定
-File file;
-String gps_time;
-String progress = "準備中";
-String file_name = "CarryRover";
 
 void setup() {
   // BNO055の初期化
@@ -70,38 +72,40 @@ void setup() {
 
   bme280spi.ESP32_BME280_SPI_Init(t_sb, filter, osrs_t, osrs_p, osrs_h, Mode);
 
-  // ログの初期化
-  if (!SD.begin()) {
-    Serial.println("Card Mount Failed");
-    return;
-  }
-
-  uint8_t cardType = SD.cardType();
-
-  if (cardType == CARD_NONE) {
-    Serial.println("No SD card attached");
-    return;
-  }
-
-  file_name = String("/") + file_name + ".csv";
-  int counter = 1;
-
-  while (SD.exists(file_name.c_str())) {
-    file_name = String("/") + file_name + String(counter) + ".csv";
-    counter++;
-  }
-
-  Serial.printf("Creating file: %s\n", file_name.c_str());
-
-  file = SD.open(file_name.c_str(), FILE_WRITE);
-  if (!file) {
-    Serial.println("Failed to create file");
-  }
-
   //溶断回路の初期化
   pinMode(FUSE_GPIO, OUTPUT);
   digitalWrite(FUSE_GPIO, LOW);
-  
+
+  // Bluetoothの初期化
+  SerialBT.begin("cansatESP32"); //デバイス名
+  while(!SerialBT.hasClient()) {
+    delay(1000);
+  }
+
+  SerialBT.println("Bluetooth connected!");
+
+  // SDカードの初期化
+  if(!SD.begin()) {
+    SerialBT.println("Card Mount Failed");
+    return;
+  }
+  uint8_t cardType = SD.cardType();
+
+  if(cardType == CARD_NONE) {
+    SerialBT.println("No SD card attached");
+    return;
+  }
+
+  // GPSの初期化
+  Serial2.begin(9600, SERIAL_8N1, 16, 17); // RX = 16, TX = 17
+  while(!gps.location.isValid() && !gps.date.isValid() && !gps.time.isValid()) {
+    SerialBT.println("Waiting for GPS signal...");
+    delay(1000);
+  }
+
+  SerialBT.println("GPS signal acquired!"); 
+
+  CreateFile("cansat"); // ファイル名
   delay(1000);
 }
 
@@ -111,12 +115,84 @@ void loop() {
   Landing();
   Fusing();
   P_GPS_Moter();
-  camera();
+  Camera();
   exit(0); //loopを1回で終了
+}
+
+// ファイルの作成
+void CreateFile(String FILE_NAME) {
+  file_name = String("/") + FILE_NAME + ".csv";
+  int counter = 2;
+
+  while(SD.exists(file_name.c_str())) {
+    file_name = String("/") + FILE_NAME + String(counter) + ".csv";
+    counter++;
+  }
+  file = SD.open(file_name.c_str(), FILE_WRITE);
+
+  if(!file) {
+    SerialBT.println("Failed to create file");
+  }
+  SerialBT.println("Creating file: " + file_name);
 }
 
 // ログの書き込み
 void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "", String data2 = "") {
+  String gps_time;
+
+  while(Serial2.available() > 0) {
+    char c = Serial2.read();
+    gps.encode(c);
+  }
+
+  if(gps.date.isValid() && gps.time.isValid()) {
+    int year = gps.date.year();
+    int month = gps.date.month();
+    int day = gps.date.day();
+    int hour = gps.time.hour();
+    int minute = gps.time.minute();
+    int second = gps.time.second();
+
+    // JSTに変換
+    hour += 9;
+    if(hour >= 24) {
+      hour -= 24;
+      day += 1;
+
+      if((month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12) && day > 31) {
+        day = 1;
+        month += 1;
+      } 
+      else if((month == 4 || month == 6 || month == 9 || month == 11) && day > 30) {
+        day = 1;
+        month += 1;
+      } 
+      else if(month == 2) {
+        if((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) {
+          if(day > 29) {
+            day = 1;
+            month += 1;
+          }
+        } 
+        else {
+          if(day > 28) {
+            day = 1;
+            month += 1;
+          }
+        }
+      }
+
+      if(month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+
+    char buffer[30];
+    sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
+    gps_time = String(buffer);
+  }
+
   file = SD.open(file_name.c_str(), FILE_APPEND);
   file.print(gps_time);
   file.print(',');
@@ -130,6 +206,18 @@ void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "",
   file.print(',');
   file.println(data2);
   file.close();
+
+  SerialBT.print(gps_time);
+  SerialBT.print(',');
+  SerialBT.print(progress);
+  SerialBT.print(',');
+  SerialBT.print(data_name1);
+  SerialBT.print(',');
+  SerialBT.print(data1);
+  SerialBT.print(',');
+  SerialBT.print(data_name2);
+  SerialBT.print(',');
+  SerialBT.println(data2);
 }
 
 // 前進
@@ -237,27 +325,25 @@ void Start() {
     init_pressure += bme280spi.Read_Pressure();
     delay(10);
   }
-
   init_pressure /= 10;
 
   while(1) {
     for(i = 0; i < 10; i++) {
-      ave_roll += fabs(Euler(0));
+      ave_roll += Euler(0);
       ave_pressure += bme280spi.Read_Pressure();
       delay(10);
     }
-
     ave_roll /= 10;
     ave_pressure /= 10;
     diff_pressure = ave_pressure - init_pressure;
 
-    if(ave_roll > 45 && ave_roll < 135 && diff_pressure < -0.5) {
-      progress = "開始";
+    if(fabs(ave_roll) > 45 && fabs(ave_roll) < 135 && diff_pressure < -0.5) {
+      progress = "Start";
       WriteLog();
       break;
     }
   
-    WriteLog("ロール角", String(ave_roll), "差圧", String(diff_pressure));
+    WriteLog("roll angle", String(ave_roll), "differential pressure", String(diff_pressure));
   }
 }
 
@@ -268,12 +354,12 @@ void Released() {
 
   while(1) {
     for(i = 0; i < 10; i++) {
-      ave_roll += fabs(Euler(0));
+      ave_roll += Euler(0);
       delay(10);
     }
     ave_roll /= 10;
 
-    if(ave_roll < 45) {
+    if(fabs(ave_roll) < 45) {
       j++;
     }
     else {
@@ -281,62 +367,69 @@ void Released() {
     }
 
     if(j >= 5) {
-      progress = "放出";
+      progress = "Released";
       break;
     }
 
-    WriteLog("ロール角", String(ave_roll));
+    WriteLog("roll angle", String(ave_roll));
   }
 }
 
 // 着地判定
 void Landing() { 
-  imu::Vector<3> gyroscope = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+  int i = 0, j = 0;
   unsigned long start_time = millis();
   unsigned long current_time = millis();
-  unsigned long diff_time = 0.0;
-  int i = 0, j = 0;
-  double ave_gyro_x = 0.0; // 平均ロール角速度
+  unsigned long elapsed_time = 0.0; // 経過時間
+  double ave_roll = 0.0; // 平均ロール角度
+  double init_roll = 0.0; // 初期ロール角度
+  double diff_roll = 0.0; // 角度変化
   double ave_pressure = 0.0; // 平均気圧
   double init_pressure = 0.0; // 初期気圧
   double diff_pressure = 0.0; // 差圧
 
   for(i = 0; i < 10; i++) {
+    init_roll += Euler(0);
     init_pressure += bme280spi.Read_Pressure();
     delay(10);
   }
 
+  init_roll /= 10;
   init_pressure /= 10;
   
   delay(500);
 
   while(1) {
     for(i = 0; i < 10; i++) {
-      ave_gyro_x += fabs(gyroscope.x());
+      ave_roll += Euler(0);
       ave_pressure += bme280spi.Read_Pressure();
       delay(10);
     }
 
-    ave_gyro_x /= 10;
+    ave_roll /= 10;
+    diff_roll = ave_roll - init_roll;
+    init_roll = ave_roll;
     ave_pressure /= 10;
     diff_pressure = ave_pressure - init_pressure;
     init_pressure = ave_pressure;
 
-    if(ave_gyro_x < 0.1 && diff_pressure < 0.1) {
+    if(fabs(diff_roll) < 0.1 && fabs(diff_pressure) < 0.1) {
       j++;
     }
     else{
       j = 0;
     }
 
-    diff_time = current_time - start_time;
+    WriteLog("roll angle change", String(diff_roll), "differential pressure", String(diff_pressure));
+    elapsed_time = current_time - start_time;
 
-    if(j == 5 || diff_time > 30000) {
-      progress = "着地";
-      WriteLog("ロール角速度", String(ave_gyro_x));
+    if(j == 5 || elapsed_time > 30000) {
+      progress = "Landing";
+      WriteLog();
       break;
     }
     else{
+      WriteLog("time", String(elapsed_time));
       current_time = millis();
     }
 
@@ -349,84 +442,85 @@ void Fusing() {
   digitalWrite(FUSE_GPIO, HIGH);
   delay(500);
   digitalWrite(FUSE_GPIO, LOW);
-  progress = "溶断完了";
+  progress = "Fusing";
   WriteLog();
 }
 
+// ２点間の距離計算
 double distanceBetween(double lat1, double long1, double lat2, double long2){
-    // returns distance in meters between two positions, both specified
-    // as signed decimal-degrees latitude and longitude. Uses great-circle
-    // distance computation for hypothetical sphere of radius 6372795 meters.
-    // Because Earth is no exact sphere, rounding errors may be up to 0.5%.
-    // Courtesy of Maarten Lamers
-    double delta = radians(long1-long2);
-    double sdlong = sin(delta);
-    double cdlong = cos(delta);
-    lat1 = radians(lat1);
-    lat2 = radians(lat2);
-    double slat1 = sin(lat1);
-    double clat1 = cos(lat1);
-    double slat2 = sin(lat2);
-    double clat2 = cos(lat2);
-    delta = (clat1 * slat2) - (slat1 * clat2 * cdlong);
-    delta = sq(delta);
-    delta += sq(clat2 * sdlong);
-    delta = sqrt(delta);
-    double denom = (slat1 * slat2) + (clat1 * clat2 * cdlong);
-    delta = atan2(delta, denom);
-    return delta * 6372795;
-}
-void GPSget(){
-double currentlocation[2]={gps.location.lat(),gps.location.lng()};
+  double delta = radians(long1-long2);
+  double sdlong = sin(delta);
+  double cdlong = cos(delta);
+  lat1 = radians(lat1);
+  lat2 = radians(lat2);
+  double slat1 = sin(lat1);
+  double clat1 = cos(lat1);
+  double slat2 = sin(lat2);
+  double clat2 = cos(lat2);
+  delta = (clat1 * slat2) - (slat1 * clat2 * cdlong);
+  delta = sq(delta);
+  delta += sq(clat2 * sdlong);
+  delta = sqrt(delta);
+  double denom = (slat1 * slat2) + (clat1 * clat2 * cdlong);
+  delta = atan2(delta, denom);
+  return delta * 6372795;
 }
 
-void AzimuthDistance(){
+void AzimuthDistance() {
   imu::Quaternion quat = bno.getQuat();
-    double w = quat.w();
-    double x = quat.x();
-    double y = quat.y();
-    double z = quat.z();
+  double w = quat.w();
+  double x = quat.x();
+  double y = quat.y();
+  double z = quat.z();
+
+  while (Serial2.available() > 0) {
+    char c = Serial2.read();
+    gps.encode(c);
+  }
+  double currentlocation[2]={gps.location.lat(),gps.location.lng()};
+
   //方位角取得
-  double azimuth= atan2(y,x)*180.0/M_PI;
-    Serial.print(azimuth);
-    Serial.println("degree");
-  Euler();
-  GPSget();
+  double azimuth= atan2(y, x) * 180.0 / M_PI;
+  Serial.print(azimuth);
+  Serial.println("degree");
+
   double turnpower;
-    turnpower = currentlocation[1] - yaw;
-    
-    azidata[0] = turnpower;
-    azidata[1] = distanceBetween(goalGPSdata2[0],goalGPSdata2[1],currentlocation[0],currentlocation[1]);
-    Serial.print("\tDistance: ");
-    Serial.println(azidata[1]);
+  turnpower = currentlocation[1] - Euler(2);
+  
+  azidata[0] = turnpower;
+  azidata[1] = distanceBetween(goalGPSdata2[0],goalGPSdata2[1],currentlocation[0],currentlocation[1]);
+  Serial.print("\tDistance: ");
+  Serial.println(azidata[1]);
 }
 
-void P_GPS_Moter(){ 
-    Serial.println("P_GPS_Moter");
-    while(true){
+// GPS誘導
+void P_GPS_Moter() { 
+  progress = "GPS guidance";
+  WriteLog();
+  
+  while(true){
     AzimuthDistance();
+
     if(azidata[1] < 5){
-        Stop();
-        progress="GPSシーケンス終了";
-        WriteLog("赤コーンとの距離", String(azidata[1]), "方位角", String(azidata[0]));
-        break;
-        }
-    else{
-        int PID_left = 0.65 * azidata[0] + 126; // 0.65は車輪半径
-        int PID_right = - 0.65 * azidata[0] + 126;
-        Forward(PID_left, PID_right);
-        WriteLog("赤コーンとの距離", String(azidata[1]), "方位角", String(azidata[0]));
-        delay(250);
-        }
+      Stop();
+      progress = "GPS guidance completed";
+      WriteLog();
+      break;
     }
+    else{
+      int PID_left = 0.65 * azidata[0] + 126; // 0.65は車輪半径
+      int PID_right = - 0.65 * azidata[0] + 126;
+      Forward(PID_left, PID_right);
+      WriteLog("distance to goal", String(azidata[1]), "azimuth", String(azidata[0]));
+      delay(250);
+    }
+  }
 }
 
-
-
-void camera(){
+void Camera() {
   int x, y;
   float percentage;
-  progress = "画像誘導";
+  progress = "Camera guidance";
   WriteLog();
 
   // データが受信されている場合
@@ -454,7 +548,7 @@ void camera(){
         percentageStr.trim();
         percentage = percentageStr.toFloat();
         
-        WriteLog("x座標", xStr, "画面占有率", percentageStr);
+        WriteLog("x coordinate", xStr, "screen occupancy", percentageStr);
       }
     }
   
@@ -482,7 +576,7 @@ void camera(){
       if(percentage > 80.0){
         //ゴール判定
         Stop();
-        progress = "ゴール";
+        progress = "Goal!";
         WriteLog();
         break;
       }

@@ -274,14 +274,16 @@ void Landing() {
       j = 0;
     }
 
+    WriteLog("roll angle change", String(diff_roll), "differential pressure", String(diff_pressure));
     elapsed_time = current_time - start_time;
 
     if(j == 5 || elapsed_time > 30000) {
       progress = "Landing";
-      WriteLog("roll angle change", String(diff_roll), "time", String(elapsed_time));
+      WriteLog();
       break;
     }
     else{
+      WriteLog("time", String(elapsed_time));
       current_time = millis();
     }
 
