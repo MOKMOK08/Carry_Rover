@@ -1,4 +1,4 @@
-const int STBY = 2;     // モータードライバの制御の準備
+const int STBY = 0;     // モータードライバの制御の準備
 const int AIN1 = 26;     // 1つ目のDCモーターの制御
 const int AIN2 = 27;     // 1つ目のDCモーターの制御
 const int BIN1 = 25;     // 2つ目のDCモーターの制御
@@ -15,6 +15,14 @@ void setup() {
   pinMode(PWMA, OUTPUT);
   pinMode(PWMB, OUTPUT);
   digitalWrite(STBY, HIGH);
+
+  int i;
+  for(i = 0; i <= 255; i += 5) {
+    Forward(i, i);
+    delay(100);
+  }
+  delay(5000);
+  Stop();
 }
 
 void loop() {
@@ -24,16 +32,15 @@ void loop() {
 void Forward(int i, int j) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
-  digitalWrite(AIN1, LOW);
-  digitalWrite(AIN2, HIGH);
-  digitalWrite(BIN1, HIGH);
-  digitalWrite(BIN2, LOW);
-  delay(1000);
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, HIGH);
 }
 
 // 回転（0:右回転. 1:左回転）
 void Turn(int a, int i, int j) {
-  if(a = 0) {
+  if(a == 0) {
     analogWrite(PWMA, i);
     analogWrite(PWMB, j);
     digitalWrite(AIN1, HIGH);
@@ -42,7 +49,7 @@ void Turn(int a, int i, int j) {
     digitalWrite(BIN2, LOW);
   }
 
-  if(a = 1) {
+  if(a == 1) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
   digitalWrite(AIN1, LOW);
@@ -56,10 +63,10 @@ void Turn(int a, int i, int j) {
 void Back(int i, int j) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
-  digitalWrite(AIN1, HIGH);
-  digitalWrite(AIN2, LOW);
-  digitalWrite(BIN1, LOW);
-  digitalWrite(BIN2, HIGH);
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, HIGH);
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, LOW);
 }
 
 // 停止
