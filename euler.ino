@@ -2,7 +2,7 @@
 #include <Adafruit_BNO055.h>
 
 // BNO055の設定
-double euler_data[3];
+double eulerdata[3];
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
 void setup() {
@@ -22,11 +22,11 @@ void setup() {
 
 void loop() {
   Serial.print("φ = ");
-  Serial.println(eulre_data[0]);
+  Serial.println(eulerdata[0]);
   Serial.print("θ = ");
-  Serial.println(euler_data[1]);
+  Serial.println(eulerdata[1]);
   Serial.print("𝜓 = ");
-  Serial.println(eulre_data[2]);
+  Serial.println(eulerdata[2]);
   delay(100);
 }
 
@@ -60,12 +60,7 @@ void Euler(){
   roll *= 57.2957795131;
   pitch *= 57.2957795131;
   yaw *= 57.2957795131;
-  
-  sensors_event_t accelerometerData;
-  bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
-  printEvent(&accelerometerData);
-  
-  delay(100);
+
   eulerdata[0] = roll;
   eulerdata[1] = pitch;   
   eulerdata[2] = yaw;
