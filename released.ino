@@ -8,6 +8,7 @@
 #include "BluetoothSerial.h"
 
 // BNO055の設定
+double eulerdata[3];
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
 // BME280の設定
@@ -187,7 +188,7 @@ void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "",
 }
 
 // クオータニオンをオイラー角に変換
-double Euler(int axis) {
+void Euler(){
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
@@ -196,20 +197,20 @@ double Euler(int axis) {
 
   double ysqr = y * y;
 
-  // ロール角
+  // roll (x-axis rotation)
   double t0 = +2.0 * (w * x + y * z);
   double t1 = +1.0 - 2.0 * (x * x + ysqr);
   double roll = atan2(t0, t1);
 
-  // ピッチ角
+  // pitch (y-axis rotation)
   double t2 = +2.0 * (w * y - z * x);
   t2 = t2 > 1.0 ? 1.0 : t2;
   t2 = t2 < -1.0 ? -1.0 : t2;
   double pitch = asin(t2);
 
-  // ヨー角
+  // yaw (z-axis rotation)
   double t3 = +2.0 * (w * z + x * y);
-  double t4 = +1.0 - 2.0 * (ysqr + z * z);
+  double t4 = +1.0 - 2.0 * (ysqr + z * z);  
   double yaw = atan2(t3, t4);
 
   //ラジアンから度に変換
@@ -217,30 +218,26 @@ double Euler(int axis) {
   pitch *= 57.2957795131;
   yaw *= 57.2957795131;
 
-  // 軸指定
-  if(axis == 0) {
-    return roll;
-  }
-  else if(axis == 1) {
-    return pitch;
-  }
-  else if(axis == 2) {
-    return yaw;
-  }
+  eulerdata[0] = roll;
+  eulerdata[1] = pitch;   
+  eulerdata[2] = yaw;
 }
 
 //放出判定
 void Released() {
-  int i = 0, j = 0;
-  double ave_roll = 0.0; // 平均ロール角度
+  double ave_roll = 0;
 
   while(1) {
-    for(i = 0; i < 10; i++) {
-      ave_roll += Euler(0);
+    for(int i = 0; i < 10; i++) {
+      Euler();
+      ave_roll += eulerdata[0];
       delay(10);
     }
     ave_roll /= 10;
 
+    WriteLog("roll angle", String(ave_roll));
+
+    int j = 0;
     if(fabs(ave_roll) < 45) {
       j++;
     }
@@ -250,9 +247,8 @@ void Released() {
 
     if(j >= 5) {
       progress = "Released";
+      WriteLog();
       break;
     }
-
-    WriteLog("roll angle", String(ave_roll));
   }
 }
