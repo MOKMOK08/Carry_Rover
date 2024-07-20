@@ -2,6 +2,7 @@
 #include <Adafruit_BNO055.h>
 
 // BNO055の設定
+double euler_data[3];
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
 void setup() {
@@ -21,16 +22,16 @@ void setup() {
 
 void loop() {
   Serial.print("φ = ");
-  Serial.println(Euler(0));
+  Serial.println(eulre_data[0]);
   Serial.print("θ = ");
-  Serial.println(Euler(1));
+  Serial.println(euler_data[1]);
   Serial.print("𝜓 = ");
-  Serial.println(Euler(2));
+  Serial.println(eulre_data[2]);
   delay(100);
 }
 
 // クオータニオンをオイラー角に変換
-double Euler(int axis) {
+void Euler(){
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
@@ -39,35 +40,33 @@ double Euler(int axis) {
 
   double ysqr = y * y;
 
-  // ロール角
+  // roll (x-axis rotation)
   double t0 = +2.0 * (w * x + y * z);
   double t1 = +1.0 - 2.0 * (x * x + ysqr);
   double roll = atan2(t0, t1);
 
-  // ピッチ角
+  // pitch (y-axis rotation)
   double t2 = +2.0 * (w * y - z * x);
   t2 = t2 > 1.0 ? 1.0 : t2;
   t2 = t2 < -1.0 ? -1.0 : t2;
   double pitch = asin(t2);
 
-  // ヨー角
+  // yaw (z-axis rotation)
   double t3 = +2.0 * (w * z + x * y);
-  double t4 = +1.0 - 2.0 * (ysqr + z * z);
+  double t4 = +1.0 - 2.0 * (ysqr + z * z);  
   double yaw = atan2(t3, t4);
 
   //ラジアンから度に変換
   roll *= 57.2957795131;
   pitch *= 57.2957795131;
   yaw *= 57.2957795131;
-
-  // 軸指定
-  if(axis == 0) {
-    return roll;
-  }
-  else if(axis == 1) {
-    return pitch;
-  }
-  else if(axis == 2) {
-    return yaw;
-  }
+  
+  sensors_event_t accelerometerData;
+  bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  printEvent(&accelerometerData);
+  
+  delay(100);
+  eulerdata[0] = roll;
+  eulerdata[1] = pitch;   
+  eulerdata[2] = yaw;
 }
