@@ -1,3 +1,8 @@
+#include "BluetoothSerial.h"
+
+// Bluetoothの設定
+BluetoothSerial SerialBT;
+
 // モーターのピン
 const int STBY = 2;     // モータードライバの制御の準備
 const int AIN1 = 26;     // 1つ目のDCモーターの制御
@@ -6,6 +11,8 @@ const int BIN1 = 25;     // 2つ目のDCモーターの制御
 const int BIN2 = 33;     // 2つ目のDCモーターの制御
 const int PWMA = 4;     // 1つ目のDCモーターの回転速度
 const int PWMB = 32;    // 2つ目のDCモーターの回転速度
+//int RX_PIN = 16;
+//int TX_PIN = 17;
 
 //カメラの設定
 const int pix=320; //画素数
@@ -23,6 +30,14 @@ void setup() {
   pinMode(PWMA, OUTPUT);
   pinMode(PWMB, OUTPUT);
   digitalWrite(STBY, HIGH);
+
+  // Bluetoothの初期化
+  SerialBT.begin("ESP32_naotaka"); //デバイス名
+  while(!SerialBT.hasClient()) {
+    delay(1000);
+  }
+
+  SerialBT.println("Bluetooth connected!");
 
   delay(1000);
 }
@@ -82,13 +97,9 @@ void Stop() {
 }
 
 void Camera() {
-  const double Kp =0.01;
-  int x = -1, y = 0;
+  const double Kp = 0.01;
+  int x=-1, y=0;
   float percentage;
-
-  if(!Serial.available()) {
-    delay(1000);
-  }
 
   // データが受信されている場合
   while(1){
@@ -113,8 +124,11 @@ void Camera() {
       String percentageStr = receivedData.substring(secondComma + 1);
       percentageStr.trim();
       percentage = percentageStr.toFloat();
-      }
-    
+
+      SerialBT.println(x);
+      SerialBT.println(percentage);
+    }
+  
     // 短い遅延
     delay(10);
 
