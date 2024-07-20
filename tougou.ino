@@ -479,18 +479,25 @@ void AzimuthDistance() {
   }
   double currentlocation[2]={gps.location.lat(),gps.location.lng()};
 
-  //方位角取得
-  double azimuth= atan2(y, x) * 180.0 / M_PI;
-  Serial.print(azimuth);
-  Serial.println("degree");
+    Euler();
+    //方位角取得
+    double x1 = currentlocation[0] * M_PI / 180.0;
+    double y1 = currentlocation[1] * M_PI / 180.0;
+    double x2 = goalGPSdata2[0] * M_PI / 180.0;
+    double y2 = goalGPSdata2[1] * M_PI / 180.0;
 
-  double turnpower;
-  turnpower = currentlocation[1] - Euler(2);
-  
-  azidata[0] = turnpower;
-  azidata[1] = distanceBetween(goalGPSdata2[0],goalGPSdata2[1],currentlocation[0],currentlocation[1]);
-  Serial.print("\tDistance: ");
-  Serial.println(azidata[1]);
+    // x と y の計算
+    double x_dif = x2 - x1;
+    double y_dif = y2 - y1;
+
+    // 方位角の計算
+    double azimuth_rad = atan2(sin(y_dif),(cos(x1)*tan(x2)-sin(x1)*cos(y_dif)));
+    double azimuth = azimuth_rad * 180.0 / M_PI;
+     
+    double turnpower;
+    turnpower = azimuth -eulerdata[2] ;  
+    azidata[0] = turnpower;
+    azidata[1] = distanceBetween(goalGPSdata2[0],goalGPSdata2[1],currentlocation[0],currentlocation[1]);
 }
 
 // GPS誘導
