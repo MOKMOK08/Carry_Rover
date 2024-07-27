@@ -21,6 +21,7 @@ void setup() {
 }
 
 void loop() {
+  Euler();
   Serial.print("φ = ");
   Serial.println(eulerdata[0]);
   Serial.print("θ = ");
