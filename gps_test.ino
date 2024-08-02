@@ -8,7 +8,6 @@
 #include "BluetoothSerial.h"
 
 // BNO055の設定
-double eulerdata[0];
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
 // BME280の設定
@@ -20,25 +19,20 @@ ESP32_BME280_SPI bme280spi(SCLK_bme280, MOSI_bme280, MISO_bme280, CS_bme280, 100
 
 // GPSの設定
 TinyGPSPlus gps;
-const double Kp_gps = 0.5; // P制御の比例ゲイン
-const double goalGPSdata2[2] = {35.7631874, 139.8962477};// ゴール座標
-
-// カメラの設定
-const double Kp_camera = 0.01; // P制御の比例ゲイン
-const int pix = 320; //画素数
+const double Kp_gps = 0.3;
+const double goal_location[2] = {35.9181513330, 139.9077351670};// ゴール座標
 
 // SDカードの設定
 File file;
-const String FILE_NAME = "tougou"; // ファイル名
 String progress = "Ready"; // シーケンス
 String file_name;
 
 // Bluetoothの設定
 BluetoothSerial SerialBT;
-const String DEVICE_NAME = "ESP32_keitaro"; // デバイス名
+String DEVICE_NAME = "ESP32_keitaro"; // デバイス名
 
 // モーターのピン
-const int STBY = 2;     // モータードライバの制御の準備
+const int STBY = 0;     // モータードライバの制御の準備
 const int AIN1 = 26;     // 1つ目のDCモーターの制御
 const int AIN2 = 27;     // 1つ目のDCモーターの制御
 const int BIN1 = 25;     // 2つ目のDCモーターの制御
@@ -49,6 +43,9 @@ const int PWMB = 32;    // 2つ目のDCモーターの回転速度
 // 溶断GPIOピン
 const int FUSE_GPIO = 2;
 
+//カメラの設定
+const int pix = 320; //画素数
+
 void setup() {
   // Bluetoothの初期化
   SerialBT.begin(DEVICE_NAME);
@@ -58,30 +55,15 @@ void setup() {
 
   SerialBT.println("Bluetooth connected!");
 
-  // カメラの初期化
-  Serial.begin(115200, SERIAL_8N1, 3, 1);
-
-  // GPSの初期化
-  Serial2.begin(9600, SERIAL_8N1, 16, 17); // RX = 16, TX = 17
-
+  Serial.print("start");
   // BNO055の初期化
   pinMode(21, INPUT_PULLUP); // SDAピン21のプルアップ設定
   pinMode(22, INPUT_PULLUP); // SDAピン22のプルアップ設定
 
   if (!bno.begin()) {
-    SerialBT.print("No BNO055 detected ... Check your wiring or I2C ADDR!");
+    Serial.print("No BNO055 detected ... Check your wiring or I2C ADDR!");
     while (1);
   }
-
-  // BME280の初期化
-  uint8_t t_sb = 5; // スタンバイ時間 1000ms
-  uint8_t filter = 0; // フィルター無効
-  uint8_t osrs_t = 4; // 温度オーバーサンプリング x4
-  uint8_t osrs_p = 4; // 圧力オーバーサンプリング x4
-  uint8_t osrs_h = 4; // 湿度オーバーサンプリング x4
-  uint8_t Mode = 3; // 通常モード
-
-  bme280spi.ESP32_BME280_SPI_Init(t_sb, filter, osrs_t, osrs_p, osrs_h, Mode);
 
   // モーターの初期化
   pinMode(STBY, OUTPUT);
@@ -92,6 +74,18 @@ void setup() {
   pinMode(PWMA, OUTPUT);
   pinMode(PWMB, OUTPUT);
   digitalWrite(STBY, HIGH);
+
+  Serial.print("setup");
+
+  // BME280の初期化
+  uint8_t t_sb = 5; // スタンバイ時間 1000ms
+  uint8_t filter = 0; // フィルター無効
+  uint8_t osrs_t = 4; // 温度オーバーサンプリング x4
+  uint8_t osrs_p = 4; // 圧力オーバーサンプリング x4
+  uint8_t osrs_h = 4; // 湿度オーバーサンプリング x4
+  uint8_t Mode = 3; // 通常モード
+
+  bme280spi.ESP32_BME280_SPI_Init(t_sb, filter, osrs_t, osrs_p, osrs_h, Mode);
 
   //溶断回路の初期化
   pinMode(FUSE_GPIO, OUTPUT);
@@ -108,20 +102,17 @@ void setup() {
     SerialBT.println("No SD card attached");
     return;
   }
-  
-  CreateFile(FILE_NAME);
+
+  // GPSの初期化
+  Serial2.begin(9600, SERIAL_8N1, 16, 17); // RX = 16, TX = 17
+
+  CreateFile("gps"); // ファイル名
   delay(1000);
 }
 
 void loop() {
-  Start();
-  Released();
-  Landing();
-  Fusing();
-  P_GPS_Moter();
-  Camera();
-  while(1) {
-  }
+  GPS();
+  exit(0); //loopを1回で終了
 }
 
 // ファイルの作成
@@ -275,167 +266,6 @@ void Stop() {
   digitalWrite(BIN2, LOW);
 }
 
-// クオータニオンをオイラー角に変換
-void Euler(){
-  imu::Quaternion quat = bno.getQuat();
-  double w = quat.w();
-  double x = quat.x();
-  double y = quat.y();
-  double z = quat.z();
-
-  double ysqr = y * y;
-
-  // roll (x-axis rotation)
-  double t0 = +2.0 * (w * x + y * z);
-  double t1 = +1.0 - 2.0 * (x * x + ysqr);
-  double roll = atan2(t0, t1);
-
-  // pitch (y-axis rotation)
-  double t2 = +2.0 * (w * y - z * x);
-  t2 = t2 > 1.0 ? 1.0 : t2;
-  t2 = t2 < -1.0 ? -1.0 : t2;
-  double pitch = asin(t2);
-
-  // yaw (z-axis rotation)
-  double t3 = +2.0 * (w * z + x * y);
-  double t4 = +1.0 - 2.0 * (ysqr + z * z);  
-  double yaw = atan2(t3, t4);
-
-  //ラジアンから度に変換
-  roll *= 57.2957795131;
-  pitch *= 57.2957795131;
-  yaw *= 57.2957795131;
-
-  eulerdata[0] = roll;
-  eulerdata[1] = pitch;   
-  eulerdata[2] = yaw;
-}
-
-// スタート判定
-void Start() {
-  double init_pressure = 0; 
-  for(int i = 0; i < 10; i++) {
-    init_pressure += bme280spi.Read_Pressure();
-    delay(10);
-  }
-  init_pressure /= 10;
-
-  while(1) {
-    double ave_roll = 0;
-    double ave_pressure = 0;
-    for(int i = 0; i < 10; i++) {
-      Euler();
-      ave_roll += eulerdata[0];
-      ave_pressure += bme280spi.Read_Pressure();
-      delay(10);
-    }
-    ave_roll /= 10;
-    ave_pressure /= 10;
-    double diff_pressure = ave_pressure - init_pressure;
-
-    WriteLog("roll angle", String(ave_roll), "differential pressure", String(diff_pressure));
-
-    if(fabs(ave_roll) > 45 && fabs(ave_roll) < 135 && diff_pressure < -0.5) {
-      progress = "Start";
-      WriteLog();
-      break;
-    }
-  }
-}
-
-//放出判定
-void Released() {
-  double ave_roll = 0;
-
-  while(1) {
-    for(int i = 0; i < 10; i++) {
-      Euler();
-      ave_roll += eulerdata[0];
-      delay(10);
-    }
-    ave_roll /= 10;
-
-    WriteLog("roll angle", String(ave_roll));
-
-    int j = 0;
-    if(fabs(ave_roll) < 45) {
-      j++;
-    }
-    else {
-      j = 0;
-    }
-
-    if(j >= 5) {
-      progress = "Released";
-      WriteLog();
-      break;
-    }
-  }
-}
-
-// 着地判定
-void Landing() { 
-  unsigned long start_time = millis();
-  double init_roll = 0;
-  double init_pressure = 0;
-  for(int i = 0; i < 10; i++) {
-    init_roll += eulerdata[0];
-    init_pressure += bme280spi.Read_Pressure();
-    delay(10);
-  }
-  init_roll /= 10;
-  init_pressure /= 10;
-  
-  delay(1000);
-
-  while(1) {
-    double ave_roll = 0;
-    double ave_pressure = 0;
-    for(int i = 0; i < 10; i++) {
-      ave_roll += eulerdata[0];
-      ave_pressure += bme280spi.Read_Pressure();
-      delay(10);
-    }
-    ave_roll /= 10;
-    ave_pressure /= 10;
-    double diff_roll = ave_roll - init_roll;
-    double diff_pressure = ave_pressure - init_pressure;
-    init_roll = ave_roll;
-    init_pressure = ave_pressure;
-
-    int j = 0;
-    if(fabs(diff_roll) < 0.1 && fabs(diff_pressure) < 0.1) {
-      j++;
-    }
-    else{
-      j = 0;
-    }
-    unsigned long elapsed_time = start_time - millis();
-
-    WriteLog("roll angle change", String(diff_roll), "differential pressure", String(diff_pressure));
-
-    if(j == 5 || elapsed_time > 30000) {
-      progress = "Landing";
-      WriteLog();
-      break;
-    }
-    else{
-      WriteLog("time", String(elapsed_time));
-    }
-
-    delay(1000);
-  }
-}
-
-// 溶断
-void Fusing() {
-  digitalWrite(FUSE_GPIO, HIGH);
-  delay(1000);
-  digitalWrite(FUSE_GPIO, LOW);
-  progress = "Fusing";
-  WriteLog();
-}
-
 // ２点間の距離計算
 double Distance(double lat1, double long1, double lat2, double long2){
   double delta = radians(long1-long2);
@@ -472,7 +302,7 @@ double Azimuth(double lat1, double lng1, double lat2, double lng2) {
 // GPS誘導
 void GPS() {
   double current_location[2];
-  progress = "GPS guidance";
+  progress = "GPS sequence";
   WriteLog();
 
   while (Serial2.available() > 0) {
@@ -502,8 +332,6 @@ void GPS() {
       diff_azimuth -= 360;
     }
 
-    WriteLog("distance", String(distance), "azimuth", String(diff_azimuth));
-
     if(fabs(diff_azimuth) > 10) {
       Turn(0, 100, 100); // 右回転
     }
@@ -511,6 +339,8 @@ void GPS() {
       Stop();
       break;
     }
+
+    WriteLog("azimuth", String(diff_azimuth));
   }
 
   // 直進
@@ -527,8 +357,6 @@ void GPS() {
 
     double distance = Distance(current_location[0], current_location[1], goal_location[0], goal_location[1]);
     double goal_azimuth = Azimuth(current_location[0], current_location[1], goal_location[0], goal_location[1]);
-
-    WriteLog("distance", String(distance), "azimuth", String(diff_azimuth));
 
     if(distance < 5){
       Stop();
@@ -553,60 +381,7 @@ void GPS() {
       int pwma = constrain(Kp_gps * diff_azimuth + 207, 0, 255);
       int pwmb = constrain(- Kp_gps * diff_azimuth + 207, 0, 255);
       Forward(pwma, pwmb);
-    }
-  }
-}
-
-// 画像誘導
-void Camera() {
-  int x = -1, y = 0;
-  float percentage;
-  progress = "Image guidance";
-  WriteLog();
-
-  // データが受信されている場合
-  while(1){
-    if (Serial.available()) {
-      // 受信データを読み取る
-      String receivedData = Serial.readStringUntil('\n');
-      
-      // 受信データをコンマで分割
-      int firstComma = receivedData.indexOf(',');
-      int secondComma = receivedData.indexOf(',', firstComma + 1);
-      int spaceAfterSecondComma = receivedData.indexOf(' ', secondComma + 1);
-      
-      // X座標
-      String xStr = receivedData.substring(1, firstComma); // "R"の後から最初のカンマまで
-      x = xStr.toInt();
-      
-      // Y座標
-      String yStr = receivedData.substring(firstComma + 1, secondComma);
-      y = yStr.toInt();
-      
-      // 割合
-      String percentageStr = receivedData.substring(secondComma + 1);
-      percentageStr.trim();
-      percentage = percentageStr.toFloat();
-
-      WriteLog("x", xStr, "percentage", percentageStr);
-    }
-
-    if(x == -1) {
-      // 検出されないため、左右どちらかに旋回し続ける
-      Turn(0, 100, 100);
-    }
-    else if(x >= 0) {
-      int p_pwma= constrain(Kp_camera * (x - pix) + 207, 0, 255);
-      int p_pwmb = constrain(-Kp_camera * (x - pix) + 207, 0, 255);
-      Forward(p_pwma, p_pwmb);
-    }
-
-    // ゴール判定
-    if(percentage > 80.0){
-      Stop();
-      progress = "Goal!";
-      WriteLog();
-      break;
+      WriteLog("distance", String(distance), "azimuth", String(diff_azimuth));
     }
   }
 }
