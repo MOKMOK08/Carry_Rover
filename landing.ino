@@ -236,7 +236,7 @@ void Landing() {
   init_roll /= 10;
   init_pressure /= 10;
   
-  delay(500);
+  delay(1000);
 
   while(1) {
     double ave_roll = 0;
@@ -273,6 +273,6 @@ void Landing() {
       WriteLog("time", String(elapsed_time));
     }
 
-    delay(500);
+    delay(1000);
   }
 }

@@ -11,6 +11,6 @@ void loop() {
 
 void Fusing() {
   digitalWrite(FUSE_GPIO, HIGH);
-  delay(400);
+  delay(100);
   digitalWrite(FUSE_GPIO, LOW);
 }
