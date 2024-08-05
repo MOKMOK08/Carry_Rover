@@ -73,13 +73,6 @@ void setup() {
 
   Serial2.begin(9600, SERIAL_8N1, 16, 17); // RX = 16, TX = 17
 
-  // GPSデータが有効でない場合、待機する
-  while(!gps.location.isValid() && !gps.date.isValid() && !gps.time.isValid()) {
-    SerialBT.println("Waiting for GPS signal...");
-    delay(1000);
-  }
-  SerialBT.println("GPS signal acquired!"); 
-
   CreateFile("cansat");
 }
 
@@ -225,6 +218,7 @@ void Euler(){
 
 //放出判定
 void Released() {
+  int j = 0;
   double ave_roll = 0;
 
   while(1) {
@@ -237,7 +231,6 @@ void Released() {
 
     WriteLog("roll angle", String(ave_roll));
 
-    int j = 0;
     if(fabs(ave_roll) < 45) {
       j++;
     }

@@ -73,13 +73,6 @@ void setup() {
 
   Serial2.begin(9600, SERIAL_8N1, 16, 17); // RX = 16, TX = 17
 
-  // GPSデータが有効でない場合、待機する
-  while(!gps.location.isValid() && !gps.date.isValid() && !gps.time.isValid()) {
-    SerialBT.println("Waiting for GPS signal...");
-    delay(1000);
-  }
-  SerialBT.println("GPS signal acquired!"); 
-
   CreateFile("cansat");
 }
 
@@ -225,9 +218,13 @@ void Euler(){
 
 // 着地判定
 void Landing() { 
-  unsigned long start_time = millis();
+  int j = 0;
   double init_roll = 0;
   double init_pressure = 0;
+  double ave_roll = 0;
+  double ave_pressure = 0;
+  unsigned long start_time = millis();
+
   for(int i = 0; i < 10; i++) {
     init_roll += eulerdata[0];
     init_pressure += bme280spi.Read_Pressure();
@@ -239,8 +236,6 @@ void Landing() {
   delay(1000);
 
   while(1) {
-    double ave_roll = 0;
-    double ave_pressure = 0;
     for(int i = 0; i < 10; i++) {
       ave_roll += eulerdata[0];
       ave_pressure += bme280spi.Read_Pressure();
@@ -253,18 +248,17 @@ void Landing() {
     init_roll = ave_roll;
     init_pressure = ave_pressure;
 
-    int j = 0;
     if(fabs(diff_roll) < 0.1 && fabs(diff_pressure) < 0.1) {
       j++;
     }
     else{
       j = 0;
     }
-    unsigned long elapsed_time = start_time - millis();
+    double elapsed_time = (millis() - start_time) / 1000;
 
     WriteLog("roll angle change", String(diff_roll), "differential pressure", String(diff_pressure));
 
-    if(j == 5 || elapsed_time > 30000) {
+    if(j == 3 || elapsed_time > 30) {
       progress = "Landing";
       WriteLog();
       break;

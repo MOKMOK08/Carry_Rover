@@ -80,7 +80,7 @@ void setup() {
   }
   SerialBT.println("GPS signal acquired!"); 
 
-  CreateFile("cansat");
+  CreateFile("start");
 }
 
 void loop() {
