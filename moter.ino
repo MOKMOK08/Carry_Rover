@@ -16,11 +16,13 @@ void setup() {
   pinMode(PWMB, OUTPUT);
   digitalWrite(STBY, HIGH);
 
-  int i;
-  for(i = 0; i <= 255; i += 5) {
-    Forward(i, i);
-    delay(100);
-  }
+  Forward(200, 200);
+  delay(5000);
+  Turn(0, 100, 100);
+  delay(5000);
+  Turn(1, 100, 100);
+  delay(5000);
+  Back(200, 200);
   delay(5000);
   Stop();
 }
@@ -43,19 +45,19 @@ void Turn(int a, int i, int j) {
   if(a == 0) {
     analogWrite(PWMA, i);
     analogWrite(PWMB, j);
-    digitalWrite(AIN1, HIGH);
-    digitalWrite(AIN2, LOW);
-    digitalWrite(BIN1, HIGH);
-    digitalWrite(BIN2, LOW);
+    digitalWrite(AIN1, LOW);
+    digitalWrite(AIN2, HIGH);
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, HIGH);
   }
 
   if(a == 1) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
-  digitalWrite(AIN1, LOW);
-  digitalWrite(AIN2, HIGH);
-  digitalWrite(BIN1, LOW);
-  digitalWrite(BIN2, HIGH);
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, LOW);
   }
 }
 

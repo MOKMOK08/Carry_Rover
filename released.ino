@@ -181,57 +181,49 @@ void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "",
 }
 
 // クオータニオンをオイラー角に変換
-void Euler(){
+double Euler(int axis) {
+  double roll = 0;
+  double pitch = 0;
+  double yaw = 0;
+
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
   double y = quat.y();
   double z = quat.z();
-
   double ysqr = y * y;
 
-  // roll (x-axis rotation)
-  double t0 = +2.0 * (w * x + y * z);
-  double t1 = +1.0 - 2.0 * (x * x + ysqr);
-  double roll = atan2(t0, t1);
-
-  // pitch (y-axis rotation)
-  double t2 = +2.0 * (w * y - z * x);
-  t2 = t2 > 1.0 ? 1.0 : t2;
-  t2 = t2 < -1.0 ? -1.0 : t2;
-  double pitch = asin(t2);
-
-  // yaw (z-axis rotation)
-  double t3 = +2.0 * (w * z + x * y);
-  double t4 = +1.0 - 2.0 * (ysqr + z * z);  
-  double yaw = atan2(t3, t4);
-
-  //ラジアンから度に変換
-  roll *= 57.2957795131;
-  pitch *= 57.2957795131;
-  yaw *= 57.2957795131;
-
-  eulerdata[0] = roll;
-  eulerdata[1] = pitch;   
-  eulerdata[2] = yaw;
+  if(axis == 0) {
+    double t0 = +2.0 * (w * x + y * z);
+    double t1 = +1.0 - 2.0 * (x * x + ysqr);
+    roll = atan2(t0, t1) * 57.2957795131;
+    return roll;
+  }
+  else if(axis == 1){
+    double t2 = +2.0 * (w * y - z * x);
+    t2 = t2 > 1.0 ? 1.0 : t2;
+    t2 = t2 < -1.0 ? -1.0 : t2;
+    pitch = asin(t2) * 57.2957795131;
+    return pitch;
+  }
+  else if(axis == 2){
+    double t3 = +2.0 * (w * z + x * y);
+    double t4 = +1.0 - 2.0 * (ysqr + z * z);  
+    yaw = atan2(t3, t4) * 57.2957795131;
+    return yaw;
+  }
 }
 
 //放出判定
 void Released() {
   int j = 0;
-  double ave_roll = 0;
 
   while(1) {
-    for(int i = 0; i < 10; i++) {
-      Euler();
-      ave_roll += eulerdata[0];
-      delay(10);
-    }
-    ave_roll /= 10;
+    double current_roll = Euler(0);
 
-    WriteLog("roll angle", String(ave_roll));
+    WriteLog("roll angle", String(current_roll));
 
-    if(fabs(ave_roll) < 45) {
+    if(fabs(current_roll) < 45) {
       j++;
     }
     else {
@@ -243,5 +235,6 @@ void Released() {
       WriteLog();
       break;
     }
+    delay(100);
   }
 }
