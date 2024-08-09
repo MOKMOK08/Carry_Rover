@@ -18,12 +18,11 @@ ESP32_BME280_SPI bme280spi(SCLK_bme280, MOSI_bme280, MISO_bme280, CS_bme280, 100
 
 // GPSの設定
 TinyGPSPlus gps;
-const double Kp_gps = 0.3; // P制御の比例ゲイン
-const double goal_location[2] = {35.9240711670, 139.9124666670
-};// ゴール座標
+const double Kp_gps = 0.5; // P制御の比例ゲイン
+const double goal_location[2] = {35.924554056, 139.912115630};// ゴール座標
 
 // カメラの設定
-const double Kp_camera = 0.03; // P制御の比例ゲイン
+const double Kp_camera = 0.1; // P制御の比例ゲイン
 const int pix = 320; //画素数
 
 // SDカードの設定
@@ -127,10 +126,12 @@ void setup() {
 }
 
 void loop() {
+  /*
   Start();
   Released();
   Landing();
   Fusing();
+  */
   GPS();
   Camera();
   while(1) {
@@ -413,6 +414,9 @@ void Fusing() {
   digitalWrite(FUSE_GPIO, LOW);
   progress = "Fusing";
   WriteLog();
+  Forward(255, 255);
+  delay(2000);
+  Stop();
 }
 
 // ２点間の距離計算
@@ -516,7 +520,7 @@ void GPS() {
     distance = Distance(current_location[0], current_location[1], goal_location[0], goal_location[1]);
     goal_azimuth = Azimuth(current_location[0], current_location[1], goal_location[0], goal_location[1]);
 
-    if(distance < 5){
+    if(distance < 1){
       Stop();
       progress = "GPS guidance completed";
       WriteLog();
@@ -551,11 +555,11 @@ void GPS() {
 // 画像誘導 
 void Camera() {
   int x = -1, y = 0;
-  float percentage;
+  double init_x = -1;
+  double percentage;
   progress = "Image guidance";
   WriteLog();
 
-  // データが受信されている場合
   while(1) {
     while(Serial.available()) {
       Serial.read();
@@ -588,24 +592,45 @@ void Camera() {
     }
 
     if(x == -1) {
-      // 検出されないため、左右どちらかに旋回し続ける
-      Turn(0, 100, 100);
-      delay(100);
-      Stop();
-      delay(100);
+      if(init_x == -1) {
+        // 検出されないため、左右どちらかに旋回し続ける
+        Turn(0, 100, 100);
+        delay(100);
+        Stop();
+        delay(100);
+      }
+      else if(init_x - pix >= 0) {
+        // 検出されないため、左右どちらかに旋回し続ける
+        Turn(1, 100, 100);
+        delay(100);
+        Stop();
+        delay(100);
+      }
+      else if(init_x - pix < 0) {
+        // 検出されないため、左右どちらかに旋回し続ける
+        Turn(0, 100, 100);
+        delay(100);
+        Stop();
+        delay(100);
+      }
     }
     else if(x >= 0) {
       int p_pwma= constrain(-Kp_camera * (x - pix) + 255, 0, 255);
       int p_pwmb = constrain(Kp_camera * (x - pix) + 255, 0, 255);
       Forward(p_pwma, p_pwmb);
+      delay(200);
     }
 
     // ゴール判定
-    if(percentage > 80.0) {
+    if(percentage > 40.0) {
+      Forward(255, 255);
+      delay(1000);
       Stop();
       progress = "Goal!";
       WriteLog();
       break;
     }
+
+    init_ x = x;
   }
 }
