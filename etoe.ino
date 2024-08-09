@@ -18,11 +18,11 @@ ESP32_BME280_SPI bme280spi(SCLK_bme280, MOSI_bme280, MISO_bme280, CS_bme280, 100
 
 // GPSの設定
 TinyGPSPlus gps;
-const double Kp_gps = 0.5; // P制御の比例ゲイン
-const double goal_location[2] = {35.924554056, 139.912115630};// ゴール座標
+const double Kp_gps = 0.6; // P制御の比例ゲイン
+const double goal_location[2] = {35.9247450, 139.9118707};// ゴール座標
 
 // カメラの設定
-const double Kp_camera = 0.1; // P制御の比例ゲイン
+const double Kp_camera = 0.07; // P制御の比例ゲイン
 const int pix = 320; //画素数
 
 // SDカードの設定
@@ -68,6 +68,7 @@ void setup() {
     }
 
     if (gps.location.isValid() && gps.location.isUpdated()) {
+      delay(10000);
       break;
     }
     else if(!gps.location.isValid() && !gps.location.isUpdated()) {
@@ -126,12 +127,10 @@ void setup() {
 }
 
 void loop() {
-  /*
   Start();
   Released();
   Landing();
   Fusing();
-  */
   GPS();
   Camera();
   while(1) {
@@ -414,7 +413,7 @@ void Fusing() {
   digitalWrite(FUSE_GPIO, LOW);
   progress = "Fusing";
   WriteLog();
-  Forward(255, 255);
+  Forward(200, 200);
   delay(2000);
   Stop();
 }
@@ -520,7 +519,7 @@ void GPS() {
     distance = Distance(current_location[0], current_location[1], goal_location[0], goal_location[1]);
     goal_azimuth = Azimuth(current_location[0], current_location[1], goal_location[0], goal_location[1]);
 
-    if(distance < 1){
+    if(distance < 5){
       Stop();
       progress = "GPS guidance completed";
       WriteLog();
@@ -543,8 +542,8 @@ void GPS() {
         diff_azimuth += 360;
       }
 
-      int pwma = constrain(-Kp_gps * diff_azimuth + 255, 0, 255);
-      int pwmb = constrain(Kp_gps * diff_azimuth + 255, 0, 255);
+      int pwma = constrain(-Kp_gps * diff_azimuth + 200, 0, 255);
+      int pwmb = constrain(Kp_gps * diff_azimuth + 200, 0, 255);
       Forward(pwma, pwmb);
 
       WriteLog("distance", String(distance), "azimuth", String(diff_azimuth));
@@ -555,7 +554,6 @@ void GPS() {
 // 画像誘導 
 void Camera() {
   int x = -1, y = 0;
-  double init_x = -1;
   double percentage;
   progress = "Image guidance";
   WriteLog();
@@ -592,33 +590,13 @@ void Camera() {
     }
 
     if(x == -1) {
-      if(init_x == -1) {
-        // 検出されないため、左右どちらかに旋回し続ける
-        Turn(0, 100, 100);
-        delay(100);
-        Stop();
-        delay(100);
-      }
-      else if(init_x - pix >= 0) {
-        // 検出されないため、左右どちらかに旋回し続ける
-        Turn(1, 100, 100);
-        delay(100);
-        Stop();
-        delay(100);
-      }
-      else if(init_x - pix < 0) {
-        // 検出されないため、左右どちらかに旋回し続ける
-        Turn(0, 100, 100);
-        delay(100);
-        Stop();
-        delay(100);
-      }
+      // 検出されないため、左右どちらかに旋回し続ける
+      Turn(0, 80, 80);
     }
     else if(x >= 0) {
-      int p_pwma= constrain(-Kp_camera * (x - pix) + 255, 0, 255);
-      int p_pwmb = constrain(Kp_camera * (x - pix) + 255, 0, 255);
+      int p_pwma= constrain(-Kp_camera * (x - pix) + 200, 0, 255);
+      int p_pwmb = constrain(Kp_camera * (x - pix) + 200, 0, 255);
       Forward(p_pwma, p_pwmb);
-      delay(200);
     }
 
     // ゴール判定
@@ -630,7 +608,5 @@ void Camera() {
       WriteLog();
       break;
     }
-
-    init_ x = x;
   }
 }

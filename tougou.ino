@@ -1,4 +1,3 @@
-#include <Wire.h>
 #include <Adafruit_BNO055.h>
 #include "ESP32_BME280_SPI.h"
 #include "FS.h"
@@ -6,9 +5,8 @@
 #include "SPI.h"
 #include <TinyGPS++.h>
 #include "BluetoothSerial.h"
-
+ 
 // BNO055の設定
-double eulerdata[0];
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 
 // BME280の設定
@@ -20,16 +18,16 @@ ESP32_BME280_SPI bme280spi(SCLK_bme280, MOSI_bme280, MISO_bme280, CS_bme280, 100
 
 // GPSの設定
 TinyGPSPlus gps;
-const double Kp_gps = 0.5; // P制御の比例ゲイン
-const double goalGPSdata2[2] = {35.7631874, 139.8962477};// ゴール座標
+const double Kp_gps = 0.6; // P制御の比例ゲイン
+const double goal_location[2] = {35.9247450, 139.9118707};// ゴール座標
 
 // カメラの設定
-const double Kp_camera = 0.01; // P制御の比例ゲイン
+const double Kp_camera = 0.07; // P制御の比例ゲイン
 const int pix = 320; //画素数
 
 // SDカードの設定
 File file;
-const String FILE_NAME = "tougou"; // ファイル名
+const String FILE_NAME = "etoe"; // ファイル名
 String progress = "Ready"; // シーケンス
 String file_name;
 
@@ -63,6 +61,21 @@ void setup() {
 
   // GPSの初期化
   Serial2.begin(9600, SERIAL_8N1, 16, 17); // RX = 16, TX = 17
+  while(1) {
+    while (Serial2.available() > 0){
+      char c = Serial2.read();
+      gps.encode(c);
+    }
+
+    if (gps.location.isValid() && gps.location.isUpdated()) {
+      delay(10000);
+      break;
+    }
+    else if(!gps.location.isValid() && !gps.location.isUpdated()) {
+      SerialBT.println("Waiting for GPS signal...");
+      delay(1000);
+    }
+  }
 
   // BNO055の初期化
   pinMode(21, INPUT_PULLUP); // SDAピン21のプルアップ設定
@@ -118,7 +131,7 @@ void loop() {
   Released();
   Landing();
   Fusing();
-  P_GPS_Moter();
+  GPS();
   Camera();
   while(1) {
   }
@@ -126,11 +139,11 @@ void loop() {
 
 // ファイルの作成
 void CreateFile(String FILE_NAME) {
-  file_name = String("/") + FILE_NAME + ".csv";
+  file_name = String("/") + FILE_NAME + ".txt";
   int counter = 2;
 
   while(SD.exists(file_name.c_str())) {
-    file_name = String("/") + FILE_NAME + String(counter) + ".csv";
+    file_name = String("/") + FILE_NAME + String(counter) + ".txt";
     counter++;
   }
   file = SD.open(file_name.c_str(), FILE_WRITE);
@@ -229,31 +242,30 @@ void WriteLog(String data_name1 = "", String data1 = "", String data_name2 = "",
 void Forward(int i, int j) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
-  digitalWrite(AIN1, LOW);
-  digitalWrite(AIN2, HIGH);
-  digitalWrite(BIN1, HIGH);
-  digitalWrite(BIN2, LOW);
-  delay(1000);
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, HIGH);
 }
 
 // 回転（0:右回転. 1:左回転）
 void Turn(int a, int i, int j) {
   if(a == 0) {
+    analogWrite(PWMA, i);
+    analogWrite(PWMB, j);
+    digitalWrite(AIN1, LOW);
+    digitalWrite(AIN2, HIGH);
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, HIGH);
+  }
+
+  if(a == 1) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
   digitalWrite(AIN1, HIGH);
   digitalWrite(AIN2, LOW);
   digitalWrite(BIN1, HIGH);
   digitalWrite(BIN2, LOW);
-  }
-
-  if(a == 1) {
-  analogWrite(PWMA, i);
-  analogWrite(PWMB, j);
-  digitalWrite(AIN1, LOW);
-  digitalWrite(AIN2, HIGH);
-  digitalWrite(BIN1, LOW);
-  digitalWrite(BIN2, HIGH);
   }
 }
 
@@ -261,10 +273,10 @@ void Turn(int a, int i, int j) {
 void Back(int i, int j) {
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
-  digitalWrite(AIN1, HIGH);
-  digitalWrite(AIN2, LOW);
-  digitalWrite(BIN1, LOW);
-  digitalWrite(BIN2, HIGH);
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, HIGH);
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, LOW);
 }
 
 // 停止
@@ -276,89 +288,69 @@ void Stop() {
 }
 
 // クオータニオンをオイラー角に変換
-void Euler(){
+double Euler(int axis) {
+  double roll = 0;
+  double pitch = 0;
+  double yaw = 0;
+
   imu::Quaternion quat = bno.getQuat();
   double w = quat.w();
   double x = quat.x();
   double y = quat.y();
   double z = quat.z();
-
   double ysqr = y * y;
 
-  // roll (x-axis rotation)
-  double t0 = +2.0 * (w * x + y * z);
-  double t1 = +1.0 - 2.0 * (x * x + ysqr);
-  double roll = atan2(t0, t1);
-
-  // pitch (y-axis rotation)
-  double t2 = +2.0 * (w * y - z * x);
-  t2 = t2 > 1.0 ? 1.0 : t2;
-  t2 = t2 < -1.0 ? -1.0 : t2;
-  double pitch = asin(t2);
-
-  // yaw (z-axis rotation)
-  double t3 = +2.0 * (w * z + x * y);
-  double t4 = +1.0 - 2.0 * (ysqr + z * z);  
-  double yaw = atan2(t3, t4);
-
-  //ラジアンから度に変換
-  roll *= 57.2957795131;
-  pitch *= 57.2957795131;
-  yaw *= 57.2957795131;
-
-  eulerdata[0] = roll;
-  eulerdata[1] = pitch;   
-  eulerdata[2] = yaw;
+  if(axis == 0) {
+    double t0 = +2.0 * (w * x + y * z);
+    double t1 = +1.0 - 2.0 * (x * x + ysqr);
+    roll = atan2(t0, t1) * 57.2957795131;
+    return roll;
+  }
+  else if(axis == 1){
+    double t2 = +2.0 * (w * y - z * x);
+    t2 = t2 > 1.0 ? 1.0 : t2;
+    t2 = t2 < -1.0 ? -1.0 : t2;
+    pitch = asin(t2) * 57.2957795131;
+    return pitch;
+  }
+  else if(axis == 2){
+    double t3 = +2.0 * (w * z + x * y);
+    double t4 = +1.0 - 2.0 * (ysqr + z * z);  
+    yaw = atan2(t3, t4) * 57.2957795131;
+    return yaw;
+  }
 }
 
 // スタート判定
 void Start() {
-  double init_pressure = 0; 
-  for(int i = 0; i < 10; i++) {
-    init_pressure += bme280spi.Read_Pressure();
-    delay(10);
-  }
-  init_pressure /= 10;
+  double init_pressure = bme280spi.Read_Pressure(); 
 
   while(1) {
-    double ave_roll = 0;
-    double ave_pressure = 0;
-    for(int i = 0; i < 10; i++) {
-      Euler();
-      ave_roll += eulerdata[0];
-      ave_pressure += bme280spi.Read_Pressure();
-      delay(10);
-    }
-    ave_roll /= 10;
-    ave_pressure /= 10;
-    double diff_pressure = ave_pressure - init_pressure;
+    double current_roll = Euler(0);
+    double current_pressure = bme280spi.Read_Pressure();
+    double diff_pressure = current_pressure - init_pressure;
 
-    WriteLog("roll angle", String(ave_roll), "differential pressure", String(diff_pressure));
+    WriteLog("roll angle", String(current_roll), "differential pressure", String(diff_pressure));
 
-    if(fabs(ave_roll) > 45 && fabs(ave_roll) < 135 && diff_pressure < -0.5) {
+    if(fabs(current_roll) > 45 && fabs(current_roll) < 135 && diff_pressure < -0.5) {
       progress = "Start";
       WriteLog();
       break;
     }
+    delay(1000);
   }
 }
 
 //放出判定
 void Released() {
-  double ave_roll = 0;
+  int j = 0;
 
   while(1) {
-    for(int i = 0; i < 10; i++) {
-      Euler();
-      ave_roll += eulerdata[0];
-      delay(10);
-    }
-    ave_roll /= 10;
+    double current_roll = Euler(0);
 
-    WriteLog("roll angle", String(ave_roll));
+    WriteLog("roll angle", String(current_roll));
 
-    int j = 0;
-    if(fabs(ave_roll) < 45) {
+    if(fabs(current_roll) < 45) {
       j++;
     }
     else {
@@ -370,51 +362,38 @@ void Released() {
       WriteLog();
       break;
     }
+    delay(100);
   }
 }
 
 // 着地判定
 void Landing() { 
+  int j = 0;
+  double init_roll = Euler(0);
+  double init_pressure = bme280spi.Read_Pressure();
   unsigned long start_time = millis();
-  double init_roll = 0;
-  double init_pressure = 0;
-  for(int i = 0; i < 10; i++) {
-    init_roll += eulerdata[0];
-    init_pressure += bme280spi.Read_Pressure();
-    delay(10);
-  }
-  init_roll /= 10;
-  init_pressure /= 10;
-  
+
   delay(1000);
 
   while(1) {
-    double ave_roll = 0;
-    double ave_pressure = 0;
-    for(int i = 0; i < 10; i++) {
-      ave_roll += eulerdata[0];
-      ave_pressure += bme280spi.Read_Pressure();
-      delay(10);
-    }
-    ave_roll /= 10;
-    ave_pressure /= 10;
-    double diff_roll = ave_roll - init_roll;
-    double diff_pressure = ave_pressure - init_pressure;
-    init_roll = ave_roll;
-    init_pressure = ave_pressure;
+    double current_roll = Euler(0);
+    double current_pressure = bme280spi.Read_Pressure();
+    double diff_roll = current_roll - init_roll;
+    double diff_pressure = current_pressure - init_pressure;
+    init_roll = current_roll;
+    init_pressure = current_pressure;
 
-    int j = 0;
-    if(fabs(diff_roll) < 0.1 && fabs(diff_pressure) < 0.1) {
+    if(fabs(diff_roll) < 5 && fabs(diff_pressure) < 0.1) {
       j++;
     }
     else{
       j = 0;
     }
-    unsigned long elapsed_time = start_time - millis();
+    double elapsed_time = (millis() - start_time) / 1000;
 
     WriteLog("roll angle change", String(diff_roll), "differential pressure", String(diff_pressure));
 
-    if(j == 5 || elapsed_time > 30000) {
+    if(j == 3 || elapsed_time > 30) {
       progress = "Landing";
       WriteLog();
       break;
@@ -430,10 +409,13 @@ void Landing() {
 // 溶断
 void Fusing() {
   digitalWrite(FUSE_GPIO, HIGH);
-  delay(1000);
+  delay(100);
   digitalWrite(FUSE_GPIO, LOW);
   progress = "Fusing";
   WriteLog();
+  Forward(200, 200);
+  delay(2000);
+  Stop();
 }
 
 // ２点間の距離計算
@@ -475,17 +457,23 @@ void GPS() {
   progress = "GPS guidance";
   WriteLog();
 
-  while (Serial2.available() > 0) {
-    char c = Serial2.read();
-    gps.encode(c);
-    
+  while(1) {
+    while (Serial2.available() > 0) {
+      char c = Serial2.read();
+      gps.encode(c);
+    }
     if (gps.location.isUpdated()){
       current_location[0] = gps.location.lat();
       current_location[1] = gps.location.lng();
+      break;
     }
   }
-      
+
+  double distance = Distance(current_location[0], current_location[1], goal_location[0], goal_location[1]);
   double goal_azimuth = Azimuth(current_location[0], current_location[1], goal_location[0], goal_location[1]);
+  if(goal_azimuth < 0) {
+    goal_azimuth += 360;
+  }
 
   // 旋回
   while(1) {
@@ -501,16 +489,19 @@ void GPS() {
     if(diff_azimuth > 180) {
       diff_azimuth -= 360;
     }
+    if(diff_azimuth < -180) {
+      diff_azimuth += 360;
+    }
 
-    WriteLog("distance", String(distance), "azimuth", String(diff_azimuth));
-
-    if(fabs(diff_azimuth) > 10) {
-      Turn(0, 100, 100); // 右回転
+    if(fabs(diff_azimuth) > 30) {
+      Turn(0, 100, 100);
     }
     else {
       Stop();
       break;
     }
+
+    WriteLog("distance", String(distance), "azimuth", String(diff_azimuth));
   }
 
   // 直進
@@ -525,10 +516,8 @@ void GPS() {
       }
     }
 
-    double distance = Distance(current_location[0], current_location[1], goal_location[0], goal_location[1]);
-    double goal_azimuth = Azimuth(current_location[0], current_location[1], goal_location[0], goal_location[1]);
-
-    WriteLog("distance", String(distance), "azimuth", String(diff_azimuth));
+    distance = Distance(current_location[0], current_location[1], goal_location[0], goal_location[1]);
+    goal_azimuth = Azimuth(current_location[0], current_location[1], goal_location[0], goal_location[1]);
 
     if(distance < 5){
       Stop();
@@ -549,23 +538,32 @@ void GPS() {
       if(diff_azimuth > 180) {
         diff_azimuth -= 360;
       }
+      if(diff_azimuth < -180) {
+        diff_azimuth += 360;
+      }
 
-      int pwma = constrain(Kp_gps * diff_azimuth + 207, 0, 255);
-      int pwmb = constrain(- Kp_gps * diff_azimuth + 207, 0, 255);
+      int pwma = constrain(-Kp_gps * diff_azimuth + 200, 0, 255);
+      int pwmb = constrain(Kp_gps * diff_azimuth + 200, 0, 255);
       Forward(pwma, pwmb);
+
+      WriteLog("distance", String(distance), "azimuth", String(diff_azimuth));
     }
   }
 }
 
-// 画像誘導
+// 画像誘導 
 void Camera() {
   int x = -1, y = 0;
-  float percentage;
+  double percentage;
   progress = "Image guidance";
   WriteLog();
 
-  // データが受信されている場合
-  while(1){
+  while(1) {
+    while(Serial.available()) {
+      Serial.read();
+    }
+    while(!Serial.available()) {
+    }
     if (Serial.available()) {
       // 受信データを読み取る
       String receivedData = Serial.readStringUntil('\n');
@@ -593,16 +591,18 @@ void Camera() {
 
     if(x == -1) {
       // 検出されないため、左右どちらかに旋回し続ける
-      Turn(0, 100, 100);
+      Turn(0, 80, 80);
     }
     else if(x >= 0) {
-      int p_pwma= constrain(Kp_camera * (x - pix) + 207, 0, 255);
-      int p_pwmb = constrain(-Kp_camera * (x - pix) + 207, 0, 255);
+      int p_pwma= constrain(-Kp_camera * (x - pix) + 200, 0, 255);
+      int p_pwmb = constrain(Kp_camera * (x - pix) + 200, 0, 255);
       Forward(p_pwma, p_pwmb);
     }
 
     // ゴール判定
-    if(percentage > 80.0){
+    if(percentage > 40.0) {
+      Forward(255, 255);
+      delay(1000);
       Stop();
       progress = "Goal!";
       WriteLog();
