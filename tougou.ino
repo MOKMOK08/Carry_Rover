@@ -19,7 +19,7 @@ ESP32_BME280_SPI bme280spi(SCLK_bme280, MOSI_bme280, MISO_bme280, CS_bme280, 100
 // GPSの設定
 TinyGPSPlus gps;
 const double Kp_gps = 0.6; // P制御の比例ゲイン
-const double goal_location[2] = {35.9247450, 139.9118707};// ゴール座標
+const double goal_location[2] = {35.9247450, 139.9118707}; // ゴール座標
 
 // カメラの設定
 const double Kp_camera = 0.07; // P制御の比例ゲイン
@@ -285,6 +285,17 @@ void Stop() {
   digitalWrite(AIN2, LOW);
   digitalWrite(BIN1, LOW);
   digitalWrite(BIN2, LOW);
+}
+
+// 機体の上下反転
+void Stuck() {
+  imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  double z = accel.z();
+  if(z < 0) {
+    Forward(200, 200);
+    delay(500);
+    Stop();
+  }
 }
 
 // クオータニオンをオイラー角に変換
