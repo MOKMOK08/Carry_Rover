@@ -431,7 +431,7 @@ void Fusing() {
   digitalWrite(FUSE_GPIO, LOW);
   progress = "Fusing";
   WriteLog();
-  Forward(200, 200);
+  Forward(255, 255);
   delay(1000);
   Stop();
 }
@@ -447,7 +447,7 @@ void AvoidPara() {
       Turn(1, 100, 100);
     }
     else if(para == 0) {
-      Forward(200, 200);
+      Forward(255, 255);
       delay(3000);
       break;
     }
@@ -582,8 +582,8 @@ void GPS() {
         diff_azimuth += 360;
       }
 
-      int pwma = constrain(-Kp_gps * diff_azimuth + 200, 0, 255);
-      int pwmb = constrain(Kp_gps * diff_azimuth + 200, 0, 255);
+      int pwma = constrain(-Kp_gps * diff_azimuth + 255, 0, 255);
+      int pwmb = constrain(Kp_gps * diff_azimuth + 255, 0, 255);
       Forward(pwma, pwmb);
 
       WriteLog("distance", String(distance), "azimuth", String(diff_azimuth));
@@ -642,11 +642,11 @@ void Camera() {
  
     if(red_x == -1) {
       // 検出されないため、左右どちらかに旋回し続ける
-      Turn(0, 80, 80);
+      Turn(0, 100, 100);
     }
     else if(red_x >= 0) {
-      int p_pwma= constrain(-Kp_camera * (red_x - pix) + 200, 0, 255);
-      int p_pwmb = constrain(Kp_camera * (red_x - pix) + 200, 0, 255);
+      int p_pwma= constrain(-Kp_camera * (red_x - pix) + 255, 0, 255);
+      int p_pwmb = constrain(Kp_camera * (red_x - pix) + 255, 0, 255);
       Forward(p_pwma, p_pwmb);
     }
 
