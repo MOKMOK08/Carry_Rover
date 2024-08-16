@@ -5,6 +5,7 @@ const int BIN1 = 25;     // 2つ目のDCモーターの制御
 const int BIN2 = 33;     // 2つ目のDCモーターの制御
 const int PWMA = 4;     // 1つ目のDCモーターの回転速度
 const int PWMB = 32;    // 2つ目のDCモーターの回転速度
+int morter = 0;
 
 void setup() {
   pinMode(STBY, OUTPUT);
@@ -15,23 +16,23 @@ void setup() {
   pinMode(PWMA, OUTPUT);
   pinMode(PWMB, OUTPUT);
   digitalWrite(STBY, HIGH);
-
-  Forward(200, 200);
-  delay(5000);
-  Turn(0, 100, 100);
-  delay(5000);
-  Turn(1, 100, 100);
-  delay(5000);
-  Back(200, 200);
-  delay(5000);
-  Stop();
 }
 
 void loop() {
+  Forward(255, 255);
+  delay(500);
+  Turn(0, 100, 100);
+  delay(500);
+  Forward(255, 255);
+  delay(500);
+  Stop();
+  while(1) {
+  }
 }
 
 // 前進
 void Forward(int i, int j) {
+  morter = 1;
   analogWrite(PWMA, i);
   analogWrite(PWMB, j);
   digitalWrite(AIN1, HIGH);
@@ -42,6 +43,10 @@ void Forward(int i, int j) {
 
 // 回転（0:右回転. 1:左回転）
 void Turn(int a, int i, int j) {
+  if(morter == 1) {
+    Gensoku();
+  }
+  morter = 2;
   if(a == 0) {
     analogWrite(PWMA, i);
     analogWrite(PWMB, j);
@@ -71,8 +76,20 @@ void Back(int i, int j) {
   digitalWrite(BIN2, LOW);
 }
 
+// 減速
+void Gensoku() {
+  for(int i = 200; i > 0; i -= 10) {
+    Forward(i, i);
+    delay(40);
+  }
+}
+
 // 停止
 void Stop() {
+  if(morter == 1) {
+    Gensoku();
+  }
+  morter = 0;
   digitalWrite(AIN1, LOW);
   digitalWrite(AIN2, LOW);
   digitalWrite(BIN1, LOW);
